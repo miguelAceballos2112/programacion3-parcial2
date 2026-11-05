@@ -1,0 +1,8 @@
+# ID duplicado, dependencia repetida, valores inválidos, dependencia desconocida,
+# autodependencia y un ID con |
+A;3;4;-
+A;2;5;-
+B;0;5;A|A
+C;abc;-1;Z
+D;1;9;D
+E|F;1;1;-

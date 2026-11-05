@@ -8,6 +8,9 @@ defmodule Svg do
   """
 
   @celda 40
+  @px_leyenda 8
+  @px_id 9
+  @px_titulo 11
   @paleta [
     "#bbdefb",
     "#fff59d",
@@ -94,7 +97,7 @@ defmodule Svg do
     colores = colores_terrenos(indice)
     terrenos = indice |> Map.values() |> Enum.sort_by(fn t -> t.simbolo end)
     alto_mapa = mapa.filas * @celda
-    ancho = max(mapa.columnas * @celda, 280)
+    ancho = ancho_mapa(mapa, terrenos, recorrido)
     alto = alto_mapa + 30 + 24 * (length(terrenos) + 2)
 
     dispositivo = Salida.abrir(ruta)
@@ -110,6 +113,26 @@ defmodule Svg do
     end
 
     :ok
+  end
+
+  # El SVG no ajusta su tamaño al texto ni se puede medir aquí sin saber la fuente del
+  # navegador, así que se estima con pocos píxeles de más por carácter.
+  defp ancho_texto(texto, px_por_caracter), do: String.length(to_string(texto)) * px_por_caracter
+
+  # El mapa puede ser más angosto que su leyenda, que empieza en x = 32
+  defp ancho_mapa(mapa, terrenos, recorrido) do
+    etiquetas = etiqueta_ruta(recorrido) ++ Enum.map(terrenos, &etiqueta_terreno/1)
+    ancho_leyenda = etiquetas |> Enum.map(fn e -> 40 + ancho_texto(e, @px_leyenda) end) |> Enum.max(fn -> 0 end)
+
+    Enum.max([mapa.columnas * @celda, 280, ancho_leyenda])
+  end
+
+  defp etiqueta_terreno(terreno), do: "#{terreno.simbolo} = #{terreno.nombre} (costo #{terreno.costo})"
+
+  defp etiqueta_ruta(nil), do: []
+
+  defp etiqueta_ruta(%Recorrido{} = r) do
+    ["Ruta de menor energía: #{r.energia} de energía, #{Recorrido.movimientos(r)} movimientos"]
   end
 
   defp escribir_encabezado(dispositivo, ancho, alto) do
@@ -195,7 +218,7 @@ defmodule Svg do
     |> Enum.each(fn {terreno, i} ->
       y = alto_mapa + 30 + 24 * i
       color = Map.get(colores, terreno.simbolo, "#eeeeee")
-      etiqueta = "#{terreno.simbolo} = #{terreno.nombre} (costo #{terreno.costo})"
+      etiqueta = etiqueta_terreno(terreno)
 
       IO.write(
         dispositivo,
@@ -218,8 +241,7 @@ defmodule Svg do
         )
 
       %Recorrido{} = r ->
-        etiqueta =
-          "Ruta de menor energía: #{r.energia} de energía, #{Recorrido.movimientos(r)} movimientos"
+        [etiqueta] = etiqueta_ruta(r)
 
         IO.write(
           dispositivo,
@@ -280,16 +302,24 @@ defmodule Svg do
     escala = escala(limite)
     filas = length(plan.finalizaciones)
     y_eje = @margen_sup + filas * @paso_fila + 6
-    ancho = max(520, @margen_izq + limite * escala + 70)
+    titulo = "Diagrama de Gantt - mejor plan: " <> Enum.join(plan.orden, " → ")
+    subtitulo = "Duración total: #{total} | Penalización: #{plan.penalizacion}"
+    margen = margen_izquierdo(plan.finalizaciones)
+
+    ancho =
+      Enum.max([
+        520,
+        margen + limite * escala + 70,
+        16 + ancho_texto(titulo, @px_titulo) + 8,
+        fin_etiquetas_retraso(plan.finalizaciones, plazos, margen, escala)
+      ])
+
     alto = y_eje + 100
 
     dispositivo = Salida.abrir(ruta)
 
     try do
       escribir_encabezado(dispositivo, ancho, alto)
-
-      titulo = "Diagrama de Gantt - mejor plan: " <> Enum.join(plan.orden, " → ")
-      subtitulo = "Duración total: #{total} | Penalización: #{plan.penalizacion}"
 
       IO.write(
         dispositivo,
@@ -304,10 +334,10 @@ defmodule Svg do
       plan.finalizaciones
       |> Enum.with_index()
       |> Enum.each(fn {{id, inicio, fin}, i} ->
-        escribir_barra(dispositivo, {id, inicio, fin}, i, escala, Map.get(plazos, id))
+        escribir_barra(dispositivo, {id, inicio, fin}, i, {margen, escala}, Map.get(plazos, id))
       end)
 
-      escribir_eje(dispositivo, limite, escala, y_eje)
+      escribir_eje(dispositivo, limite, {margen, escala}, y_eje)
       escribir_leyenda_gantt(dispositivo, y_eje + 50)
       IO.write(dispositivo, "</svg>\n")
     after
@@ -319,16 +349,41 @@ defmodule Svg do
 
   defp escala(limite), do: max(20, min(60, div(800, max(limite, 1))))
 
-  defp escribir_barra(dispositivo, {id, inicio, fin}, i, escala, plazo) do
+  # Los IDs se escriben a la izquierda de las barras y terminan 10 px antes del margen
+  defp margen_izquierdo(finalizaciones) do
+    finalizaciones
+    |> Enum.map(fn {id, _inicio, _fin} -> ancho_texto(id, @px_id) + 18 end)
+    |> Enum.max(fn -> 0 end)
+    |> max(@margen_izq)
+  end
+
+  # Hasta dónde llegan los avisos de retraso, que se escriben a la derecha de cada barra
+  defp fin_etiquetas_retraso(finalizaciones, plazos, margen, escala) do
+    finalizaciones
+    |> Enum.map(fn {id, _inicio, fin} ->
+      plazo = Map.get(plazos, id)
+
+      if plazo != nil and fin > plazo do
+        margen + fin * escala + 8 + ancho_texto(etiqueta_retraso(fin, plazo), @px_leyenda)
+      else
+        0
+      end
+    end)
+    |> Enum.max(fn -> 0 end)
+  end
+
+  defp etiqueta_retraso(fin, plazo), do: "fuera de plazo (+#{fin - plazo})"
+
+  defp escribir_barra(dispositivo, {id, inicio, fin}, i, {margen, escala}, plazo) do
     y = @margen_sup + i * @paso_fila
-    x = @margen_izq + inicio * escala
+    x = margen + inicio * escala
     ancho = (fin - inicio) * escala
     tarde = plazo != nil and fin > plazo
     {clase, color, borde} = if tarde, do: {"tarde", @color_tarde, "#b71c1c"}, else: {"a-tiempo", @color_a_tiempo, "#1b5e20"}
 
     IO.write(
       dispositivo,
-      ~s(<text x="#{@margen_izq - 10}" y="#{y + 17}" font-family="sans-serif" font-size="13" text-anchor="end" fill="#263238">#{escapar(id)}</text>\n)
+      ~s(<text x="#{margen - 10}" y="#{y + 17}" font-family="sans-serif" font-size="13" text-anchor="end" fill="#263238">#{escapar(id)}</text>\n)
     )
 
     IO.write(
@@ -347,7 +402,7 @@ defmodule Svg do
     )
 
     if plazo != nil do
-      x_plazo = @margen_izq + plazo * escala
+      x_plazo = margen + plazo * escala
 
       IO.write(
         dispositivo,
@@ -356,7 +411,7 @@ defmodule Svg do
     end
 
     if tarde do
-      etiqueta = "fuera de plazo (+#{fin - plazo})"
+      etiqueta = etiqueta_retraso(fin, plazo)
 
       IO.write(
         dispositivo,
@@ -365,17 +420,17 @@ defmodule Svg do
     end
   end
 
-  defp escribir_eje(dispositivo, limite, escala, y_eje) do
+  defp escribir_eje(dispositivo, limite, {margen, escala}, y_eje) do
     paso = max(1, div(limite + 19, 20))
-    x_fin = @margen_izq + limite * escala
+    x_fin = margen + limite * escala
 
     IO.write(
       dispositivo,
-      ~s(<line x1="#{@margen_izq}" y1="#{y_eje}" x2="#{x_fin}" y2="#{y_eje}" stroke="#263238" stroke-width="1.5"/>\n)
+      ~s(<line x1="#{margen}" y1="#{y_eje}" x2="#{x_fin}" y2="#{y_eje}" stroke="#263238" stroke-width="1.5"/>\n)
     )
 
     Enum.each(0..limite//paso, fn t ->
-      x = @margen_izq + t * escala
+      x = margen + t * escala
 
       IO.write(
         dispositivo,
@@ -390,7 +445,7 @@ defmodule Svg do
 
     IO.write(
       dispositivo,
-      ~s(<text x="#{@margen_izq}" y="#{y_eje + 34}" font-family="sans-serif" font-size="11" fill="#546e7a">Tiempo en unidades</text>\n)
+      ~s(<text x="#{margen}" y="#{y_eje + 34}" font-family="sans-serif" font-size="11" fill="#546e7a">Tiempo en unidades</text>\n)
     )
   end
 

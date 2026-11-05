@@ -3,7 +3,7 @@ defmodule ValidadorEdificio do
   #
   # Todas las funciones son recursivas con head/tail, sin Enum ni Stream.
   # Devuelven una lista de errores {linea_o_coordenada, mensaje} y no escriben archivos.
-  # Si un error no tiene línea ni coordenada, la ubicación es :general.
+  # Si un error no tiene línea ni coordenada, la ubicación es "general".
   #
   # Datos que recibe de Rol 3:
   #   filas    = [{linea, ["X", "S", ...]}, ...]
@@ -15,7 +15,7 @@ defmodule ValidadorEdificio do
   end
 
   # El archivo de batería no tiene ninguna línea de datos
-  def validar_bateria([]), do: [{:general, "bateria.txt no tiene datos"}]
+  def validar_bateria([]), do: [{"general", "bateria.txt no tiene datos"}]
 
   # La primera línea debe ser el entero y no pueden sobrar más líneas
   def validar_bateria([{linea, texto} | sobrantes]) do
@@ -79,7 +79,7 @@ defmodule ValidadorEdificio do
   # -----------------------------------
 
   # Sin filas no hay nada más que revisar
-  defp validar_cuadricula([], _terrenos), do: [{:general, "La cuadrícula está vacía"}]
+  defp validar_cuadricula([], _terrenos), do: [{"general", "La cuadrícula está vacía"}]
 
   # Las filas se convierten en celdas para revisar cada regla con una sola recursión
   defp validar_cuadricula(filas, terrenos) do
@@ -154,7 +154,7 @@ defmodule ValidadorEdificio do
   # Debe existir exactamente una casilla con el símbolo
   defp validar_unico(celdas, simbolo) do
     case posiciones_de(celdas, simbolo) do
-      [] -> [{:general, "No existe ninguna casilla #{simbolo}"}]
+      [] -> [{"general", "No existe ninguna casilla #{simbolo}"}]
       [_unica] -> []
       posiciones -> reportar_repetidas(posiciones, simbolo)
     end

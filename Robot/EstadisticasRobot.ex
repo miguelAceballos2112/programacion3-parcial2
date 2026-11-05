@@ -3,9 +3,11 @@ defmodule Robot.Estadisticas do
   Acumulador de la búsqueda del robot.
 
   No guarda todos los recorridos: solo el total y los recorridos que empatan en
-  el mínimo de movimientos y en el mínimo de energía. El primer elemento de cada
-  lista de empates es el primero encontrado en el orden fijo arriba, derecha,
-  abajo, izquierda (el que se dibuja en el SVG).
+  el mínimo de movimientos y en el mínimo de energía. Cada empate se guarda como
+  `{id, recorrido}`, donde `id` es el consecutivo del recorrido en
+  `recorridos_rescate.csv`. El primer elemento de cada lista de empates es el
+  primero encontrado en el orden fijo arriba, derecha, abajo, izquierda (el que se
+  dibuja en el SVG).
   """
 
   defstruct total: 0,
@@ -33,16 +35,18 @@ defmodule Robot.Estadisticas do
                               &Robot.Estadisticas.actualizar/2)
   """
   def actualizar(%Recorrido{} = recorrido, %__MODULE__{} = estadisticas) do
+    entrada = {estadisticas.total + 1, recorrido}
+
     {min_mov, menos_mov} =
       mejorar(
         estadisticas.min_movimientos,
         estadisticas.menos_movimientos,
         Recorrido.movimientos(recorrido),
-        recorrido
+        entrada
       )
 
     {min_en, menor_en} =
-      mejorar(estadisticas.min_energia, estadisticas.menor_energia, recorrido.energia, recorrido)
+      mejorar(estadisticas.min_energia, estadisticas.menor_energia, recorrido.energia, entrada)
 
     %{
       estadisticas
@@ -57,14 +61,14 @@ defmodule Robot.Estadisticas do
   @doc """
   Primer recorrido encontrado con el menor número de movimientos (o `nil`).
   """
-  def primero_menos_movimientos(%__MODULE__{menos_movimientos: [primero | _]}), do: primero
+  def primero_menos_movimientos(%__MODULE__{menos_movimientos: [{_id, primero} | _]}), do: primero
   def primero_menos_movimientos(%__MODULE__{}), do: nil
 
   @doc """
   Primer recorrido encontrado con la menor energía (o `nil`). Es el que se dibuja
   en `ruta_optima.svg`.
   """
-  def primero_menor_energia(%__MODULE__{menor_energia: [primero | _]}), do: primero
+  def primero_menor_energia(%__MODULE__{menor_energia: [{_id, primero} | _]}), do: primero
   def primero_menor_energia(%__MODULE__{}), do: nil
 
   # -----------------------------------
@@ -74,15 +78,15 @@ defmodule Robot.Estadisticas do
   # Actualiza un criterio (mínimo y lista de empates) con el valor de un recorrido.
 
   # Sin mínimo todavía: este es el primero.
-  defp mejorar(nil, _empates, valor, recorrido), do: {valor, [recorrido]}
+  defp mejorar(nil, _empates, valor, entrada), do: {valor, [entrada]}
 
   # Mejor que el mínimo: la lista de empates se reemplaza.
-  defp mejorar(minimo, _empates, valor, recorrido) when valor < minimo, do: {valor, [recorrido]}
+  defp mejorar(minimo, _empates, valor, entrada) when valor < minimo, do: {valor, [entrada]}
 
   # Empate: se conserva en orden de aparición.
-  defp mejorar(minimo, empates, valor, recorrido) when valor == minimo,
-    do: {minimo, empates ++ [recorrido]}
+  defp mejorar(minimo, empates, valor, entrada) when valor == minimo,
+    do: {minimo, empates ++ [entrada]}
 
   # Peor que el mínimo: no cambia nada.
-  defp mejorar(minimo, empates, _valor, _recorrido), do: {minimo, empates}
+  defp mejorar(minimo, empates, _valor, _entrada), do: {minimo, empates}
 end

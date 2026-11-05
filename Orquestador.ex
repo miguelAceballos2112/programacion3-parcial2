@@ -1,30 +1,13 @@
 defmodule Orquestador do
   # Flujo de los dos problemas:
-  #   1. Leer con las funciones de Rol 3.
-  #   2. Juntar los errores de lectura con los de validación.
-  #   3. Si hay errores, pedir a Rol 3 que los escriba y detenerse.
+  #   1. Revisar que existan los archivos.
+  #   2. Leer con Lector y juntar los errores de lectura con los de validación.
+  #   3. Escribir el reporte de validación. Si hay errores, detenerse.
   #   4. Si no hay errores, ejecutar el problema y escribir los resultados.
   #
-  # Funciones de los compañeros que se usan aquí. Los nombres marcados con (*) vienen
-  # de la lista de responsabilidades de Rol 1; los demás son una propuesta por confirmar,
-  # igual que los argumentos de todas.
-  #
-  # Rol 3:
-  #   Archivos.leer_edificio(ruta)   -> {[{linea, simbolos}], errores}
-  #   Archivos.leer_terrenos(ruta)   -> {[{linea, %Terreno{}}], errores}
-  #   Archivos.leer_bateria(ruta)    -> {[{linea, texto}], errores}
-  #   Archivos.leer_tareas(ruta)     -> {[{linea, %Tarea{}}], errores}
-  #   Archivos.escribir_validacion(ruta, errores)
-  #   Archivos.escribir_rescate(salida, pasos, recorridos, matriz, terrenos) -> resumen
-  #   Archivos.escribir_tareas(salida, tareas, planes)                       -> resumen
-  #
-  # Rol 1:
-  #   Robot.stream_relajacion(edificio, energia) (*)
-  #   Robot.pasos_hasta_estabilizar(stream)
-  #   Robot.meta_alcanzable?(matriz, estado_final)
-  #   Robot.posicion(matriz, simbolo)
-  #   Robot.buscar_recorridos(matriz, terrenos, inicio, energia) (*)
-  #   Planificador.generar_planes(tareas, orden, tiempo) (*)
+  # Los recorridos y los planes se escriben a medida que la recursión los produce:
+  # Robot y Planificador entregan cada uno a un receptor de Salida, y en memoria solo
+  # quedan las estadísticas.
 
   # -----------------------------------
   # Problema 1: robot de rescate
@@ -45,9 +28,9 @@ defmodule Orquestador do
   end
 
   defp validar_rescate([ruta_edificio, ruta_terrenos, ruta_bateria], salida) do
-    {filas, errores_edificio} = Archivos.leer_edificio(ruta_edificio)
-    {terrenos, errores_terrenos} = Archivos.leer_terrenos(ruta_terrenos)
-    {bateria, errores_bateria} = Archivos.leer_bateria(ruta_bateria)
+    {:ok, filas, errores_edificio} = Lector.leer_edificio(ruta_edificio)
+    {:ok, terrenos, errores_terrenos} = Lector.leer_terrenos(ruta_terrenos)
+    {:ok, bateria, errores_bateria} = Lector.leer_bateria(ruta_bateria)
 
     errores =
       errores_edificio ++
@@ -57,7 +40,11 @@ defmodule Orquestador do
         ValidadorEdificio.validar_bateria(bateria)
 
     # Siempre se reemplaza para que no quede el reporte de una ejecución anterior
-    Archivos.escribir_validacion("#{salida}/validacion_edificio.txt", errores)
+    Salida.escribir_validacion(
+      "#{salida}/validacion_edificio.txt",
+      "Validación del edificio",
+      errores
+    )
 
     case errores do
       [] -> ejecutar_rescate(filas, terrenos, bateria, salida)
@@ -65,37 +52,71 @@ defmodule Orquestador do
     end
   end
 
-  defp ejecutar_rescate(filas, terrenos, [{_linea, texto}], salida) do
-    matriz = quitar_lineas(filas)
-    tabla = quitar_lineas(terrenos)
-    energia = texto |> String.trim() |> String.to_integer()
+  defp ejecutar_rescate(filas, terrenos, bateria, salida) do
+    edificio = quitar_lineas(filas)
+    tabla = Lector.indice_terrenos(terrenos)
+    {:ok, energia} = Lector.entero_bateria(bateria)
 
-    pasos =
-      {matriz, tabla}
-      |> Robot.stream_relajacion(energia)
-      |> Robot.pasos_hasta_estabilizar()
+    {pasos, indice} = Robot.expansion(edificio, tabla, energia)
+    Salida.escribir_expansion("#{salida}/expansion_energia.txt", pasos, indice)
 
-    recorridos = enumerar_recorridos(matriz, tabla, energia, Enum.at(pasos, -1))
+    estadisticas = escribir_recorridos(edificio, tabla, energia, pasos, salida)
 
-    salida
-    |> Archivos.escribir_rescate(pasos, recorridos, matriz, tabla)
-    |> Util2.mostrar(:mensaje)
+    Salida.resumen_rescate("#{salida}/resumen_rescate.txt", %{
+      total: estadisticas.total,
+      bateria: energia,
+      menos_movimientos: estadisticas.menos_movimientos,
+      menor_energia: estadisticas.menor_energia
+    })
 
-    resultado_rescate(recorridos)
+    Svg.escribir_ruta(
+      "#{salida}/ruta_optima.svg",
+      Lector.construir_mapa(filas),
+      tabla,
+      Robot.Estadisticas.primero_menor_energia(estadisticas)
+    )
+
+    resultado_rescate(estadisticas.total)
   end
 
-  # Si la meta no tiene costo alcanzable se omite la enumeración, pero igual se escriben
-  # las salidas: el resumen lo indica y el SVG lleva la leyenda «sin recorrido».
-  defp enumerar_recorridos(matriz, tabla, energia, estado_final) do
-    if Robot.meta_alcanzable?(matriz, estado_final) do
-      Robot.buscar_recorridos(matriz, tabla, Robot.posicion(matriz, "S"), energia)
-    else
-      []
-    end
+  # El CSV se crea siempre. Si la meta no tiene costo alcanzable se omite la enumeración
+  # y solo queda la cabecera; el resumen y el SVG indican que no hay recorrido.
+  defp escribir_recorridos(edificio, tabla, energia, pasos, salida) do
+    dispositivo = Salida.abrir_recorridos("#{salida}/recorridos_rescate.csv")
+    meta = Robot.ubicar(edificio, "M")
+    estado_final = Enum.at(pasos, -1)
+
+    estadisticas =
+      if Robot.meta_alcanzable?({estado_final, meta}) do
+        enumerar_recorridos(edificio, tabla, energia, dispositivo)
+      else
+        Robot.Estadisticas.nuevo()
+      end
+
+    Salida.cerrar(dispositivo)
+    estadisticas
   end
 
-  defp resultado_rescate([]), do: {:ok, :sin_recorrido}
-  defp resultado_rescate(_recorridos), do: {:ok, :con_recorridos}
+  defp enumerar_recorridos(edificio, tabla, energia, dispositivo) do
+    receptor =
+      Salida.receptor_recorridos(dispositivo, fn _id, recorrido, estadisticas ->
+        Robot.Estadisticas.actualizar(recorrido, estadisticas)
+      end)
+
+    {_total, estadisticas} =
+      Robot.buscar_recorridos(
+        edificio,
+        tabla,
+        energia,
+        {0, Robot.Estadisticas.nuevo()},
+        receptor
+      )
+
+    estadisticas
+  end
+
+  defp resultado_rescate(0), do: {:ok, :sin_recorrido}
+  defp resultado_rescate(_total), do: {:ok, :con_recorridos}
 
   # -----------------------------------
   # Problema 2: planificación de tareas
@@ -112,11 +133,15 @@ defmodule Orquestador do
   end
 
   defp validar_tareas(ruta, salida) do
-    {tareas, errores_lectura} = Archivos.leer_tareas(ruta)
+    {:ok, tareas, errores_lectura} = Lector.leer_tareas(ruta)
     errores = errores_lectura ++ ValidadorTareas.validar(tareas)
 
     # Siempre se reemplaza para que no quede el reporte de una ejecución anterior
-    Archivos.escribir_validacion("#{salida}/validacion_tareas.txt", errores)
+    Salida.escribir_validacion(
+      "#{salida}/validacion_tareas.txt",
+      "Validación de tareas",
+      errores
+    )
 
     case errores do
       [] -> ejecutar_tareas(quitar_lineas(tareas), salida)
@@ -126,19 +151,41 @@ defmodule Orquestador do
 
   # Sin tareas no hay error: se reporta un proyecto vacío sin enumerar planes
   defp ejecutar_tareas([], salida) do
-    salida
-    |> Archivos.escribir_tareas([], [])
-    |> Util2.mostrar(:mensaje)
+    "#{salida}/planes.csv"
+    |> Salida.abrir_planes()
+    |> Salida.cerrar()
+
+    Salida.resumen_tareas("#{salida}/resumen_tareas.txt", %{total: 0, vacio: true})
+    Svg.escribir_gantt("#{salida}/mejor_plan.svg", nil, [])
 
     {:ok, :proyecto_vacio}
   end
 
   defp ejecutar_tareas(tareas, salida) do
-    planes = Planificador.generar_planes(tareas, [], 0)
+    dispositivo = Salida.abrir_planes("#{salida}/planes.csv")
 
-    salida
-    |> Archivos.escribir_tareas(tareas, planes)
-    |> Util2.mostrar(:mensaje)
+    receptor =
+      Salida.receptor_planes(dispositivo, fn _id, plan, estadisticas ->
+        Planificador.Estadisticas.actualizar(plan, estadisticas)
+      end)
+
+    {_total, estadisticas} =
+      Planificador.generar_planes(tareas, {0, Planificador.Estadisticas.nuevo()}, receptor)
+
+    Salida.cerrar(dispositivo)
+
+    Salida.resumen_tareas("#{salida}/resumen_tareas.txt", %{
+      total: estadisticas.total,
+      vacio: false,
+      penalizacion_minima: estadisticas.penalizacion_minima,
+      mejores: estadisticas.optimos
+    })
+
+    Svg.escribir_gantt(
+      "#{salida}/mejor_plan.svg",
+      Planificador.Estadisticas.primer_optimo(estadisticas),
+      tareas
+    )
 
     {:ok, :con_planes}
   end

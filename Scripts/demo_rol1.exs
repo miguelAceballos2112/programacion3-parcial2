@@ -1,5 +1,5 @@
 # Demostración del Rol 1 con los datos del enunciado.
-# Ejecutar con:  elixir Scripts/demo_rol1.exs
+# Ejecutar con:  mix run Scripts/demo_rol1.exs
 
 defmodule DemoRol1 do
   def main do

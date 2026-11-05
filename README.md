@@ -11,7 +11,7 @@ Programación funcional con Elixir: recursividad, Streams y structs.
 
 | Integrante | Rol | Responsabilidad |
 |------------|-----|-----------------|
-| Miguel Angel Ceballos Soler | Rol 1 | Algoritmos y Streams (`Robot`, `Planificador` y sus estadísticas) |
+| Miguel Angel Ceballos Soler | Rol 1 | Algoritmos y Streams (`Robot`, `Planificador` y sus estadísticas) y pruebas ExUnit |
 | Victor Manuel Bolaños Guzman | Rol 2 | Validación recursiva (`ValidadorEdificio`, `ValidadorTareas`) y `Orquestador` |
 | Juan Jose Ramirez Londoño | Rol 3 | Entrada y salida (`Lector`, `Salida`, `Svg`) |
 
@@ -27,27 +27,27 @@ El grupo eligió la combinación válida **1 y 2**:
 Se necesita Elixir 1.14 o superior (`elixir --version`). Todos los comandos se ejecutan desde la
 carpeta raíz del repositorio.
 
-Primero se compila. En Windows:
+El proyecto usa Mix. La primera vez se descarga la dependencia de documentación:
 
 ```
-.\compilar.bat
-```
-
-En otros sistemas:
-
-```
-elixirc Orquestador.ex Util Robot Planificador Archivos Test/Pruebas.ex
+mix deps.get
 ```
 
 Después se ejecuta cada problema:
 
 ```
-elixir rescate.exs
-elixir tareas.exs
+mix run rescate.exs
+mix run tareas.exs
 ```
 
 Si hay errores en los datos, el programa los reporta en el archivo de validación y no inicia la
 búsqueda. Si falta un archivo requerido, muestra un aviso con su nombre.
+
+También se puede ejecutar sin Mix, compilando con `.\compilar.bat` en Windows o con
+`elixirc Orquestador.ex Util Robot Planificador Archivos` en otros sistemas, y luego con
+`elixir rescate.exs` y `elixir tareas.exs`.
+
+La documentación se genera con `mix docs` en la carpeta `doc/`.
 
 ## Archivos de entrada y salida
 
@@ -60,21 +60,15 @@ Las entradas se leen de la carpeta raíz y las salidas se escriben allí mismo.
 
 ## Pruebas
 
-Cada archivo muestra `OK` o `FALLO` por prueba y al final el total.
+Las pruebas usan ExUnit y están en `Test/`:
 
 ```
-elixir Test/pruebas_robot.exs
-elixir Test/pruebas_planificador.exs
-elixir Test/pruebas_validadores.exs
-elixir Test/pruebas_lector.exs
-elixir Test/pruebas_salida.exs
-elixir Test/pruebas_svg.exs
-elixir Test/pruebas_svg_xml.exs
-elixir Test/pruebas_integracion.exs
+mix test
 ```
 
-`pruebas_integracion.exs` ejecuta el programa completo con cada carpeta de `fixtures/` y deja allí
-sus salidas. `pruebas_svg_xml.exs` comprueba que los SVG sean XML bien formado.
+`integracion_test.exs` ejecuta el programa completo con cada carpeta de `fixtures/` y deja allí sus
+salidas. `svg_xml_test.exs` comprueba que los SVG sean XML bien formado y `doctest_test.exs` ejecuta
+los ejemplos `iex>` de la documentación.
 
 | Carpeta en `fixtures/` | Tipo | Resultado esperado |
 |---|---|---|
@@ -96,21 +90,22 @@ Para ver la comparación de tiempos entre la relajación y la enumeración, o la
 con datos escritos a mano:
 
 ```
-elixir Scripts/demo_rol1.exs
-elixir Scripts/demo_rol3.exs
+mix run Scripts/demo_rol1.exs
+mix run Scripts/demo_rol3.exs
 ```
 
 ## Estructura
 
 | Carpeta o archivo | Contenido |
 |---|---|
+| `mix.exs` | Proyecto Mix: carpetas del código y de las pruebas, y dependencia de documentación |
 | `rescate.exs`, `tareas.exs` | Puntos de entrada |
 | `Orquestador.ex` | Flujo de los dos problemas: leer, validar, ejecutar y escribir |
 | `Robot/` | `Terreno`, `Recorrido`, `Robot`, `Robot.Estadisticas`, `ValidadorEdificio` |
 | `Planificador/` | `Tarea`, `Plan`, `Planificador`, `Planificador.Estadisticas`, `ValidadorTareas` |
 | `Archivos/` | `Lector`, `Salida`, `Svg` |
 | `Util/` | `Util2` y `Benchmark`, provistos por el docente |
-| `Test/` | Pruebas y su utilidad compartida, `Pruebas` |
+| `Test/` | Pruebas ExUnit |
 | `Scripts/` | Demostraciones |
 | `fixtures/` | Casos de prueba |
 

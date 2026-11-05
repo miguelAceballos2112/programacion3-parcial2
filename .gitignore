@@ -1,7 +1,11 @@
+/_build/
+/deps/
+/doc/
+/tmp/
+*.ez
 *.beam
 erl_crash.dump
 salida/
-salida_pruebas/
 validacion_*.txt
 expansion_energia.txt
 recorridos_rescate.csv

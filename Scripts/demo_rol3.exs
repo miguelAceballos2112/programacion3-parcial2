@@ -2,7 +2,7 @@
 #
 # Uso, desde la carpeta del proyecto:
 #
-#     elixir Scripts/demo_rol3.exs
+#     mix run Scripts/demo_rol3.exs
 #
 # Lee los archivos de ejemplo de fixtures/lector/ con el Lector real y genera todos los
 # archivos de salida en la carpeta salida/. Los recorridos, los planes y los pasos de

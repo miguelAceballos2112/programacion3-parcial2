@@ -13,7 +13,7 @@ Programación funcional con Elixir: recursividad, Streams y structs.
 |------------|-----|-----------------|
 | Miguel Angel Ceballos Soler | Rol 1 | Algoritmos y Streams (`Robot`, `Planificador` y sus estadísticas) |
 | Victor Manuel Bolaños Guzman | Rol 2 | Validación recursiva (`ValidadorEdificio`, `ValidadorTareas`) y `Orquestador` |
-| Juan Ramírez | Rol 3 | Entrada y salida (`Lector`, `Salida`, `Svg`) |
+| Juan Jose Ramirez Londoño | Rol 3 | Entrada y salida (`Lector`, `Salida`, `Svg`) |
 
 ## Problemas elegidos
 

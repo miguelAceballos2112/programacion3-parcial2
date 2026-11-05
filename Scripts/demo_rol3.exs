@@ -17,7 +17,7 @@ IO.puts("== Lectura con File.stream!/1 ==")
 {:ok, filas, errores_edificio} = Lector.leer_edificio("fixtures/lector/edificio.txt")
 {:ok, registros_terrenos, errores_terrenos} = Lector.leer_terrenos("fixtures/lector/terrenos.csv")
 {:ok, registros_bateria, errores_bateria} = Lector.leer_bateria("fixtures/lector/bateria.txt")
-{:ok, registros_tareas, errores_tareas} = Lector.leer_tareas("fixtures/lector/tareas.csv")
+{:ok, registros_tareas, _errores_tareas} = Lector.leer_tareas("fixtures/lector/tareas.csv")
 
 IO.puts("edificio: #{length(filas)} filas, terrenos: #{length(registros_terrenos)}, tareas: #{length(registros_tareas)}")
 

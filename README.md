@@ -11,94 +11,170 @@ Programación funcional con Elixir: recursividad, Streams y structs.
 
 | Integrante | Rol | Responsabilidad |
 |------------|-----|-----------------|
-| Miguel Angel Ceballos Soler | Rol 1 | Algoritmos y Streams (`Robot`, `Planificador`) y pruebas ExUnit |
-| _Nombre 2_ | Rol 2 | _(completar)_ |
-| _Nombre 3_ | Rol 3 | _(completar)_ |
+| Miguel Angel Ceballos Soler | Rol 1 | Algoritmos y Streams (`Robot`, `Planificador` y sus estadísticas) |
+| Victor Manuel Bolaños Guzman | Rol 2 | Validación recursiva (`ValidadorEdificio`, `ValidadorTareas`) y `Orquestador` |
+| Juan Ramírez | Rol 3 | Entrada y salida (`Lector`, `Salida`, `Svg`) |
 
 ## Problemas elegidos
 
-El grupo eligió las combinaciones válidas **1 y 2**:
+El grupo eligió la combinación válida **1 y 2**:
 
 1. **Problema 1** – Robot de rescate con energía limitada y mapa SVG (structs y Stream infinito).
 2. **Problema 2** – Planificación de tareas con dependencias y diagrama SVG (structs).
 
-## Requisitos
+## Cómo ejecutar
 
-Elixir 1.14 o superior. Se verifica con `elixir --version`. Todo el código está en scripts `.exs`, por lo que no se necesita compilar ni crear un proyecto Mix.
+Se necesita Elixir 1.14 o superior (`elixir --version`). Todos los comandos se ejecutan desde la
+carpeta raíz del repositorio.
 
-## Cómo ejecutar las pruebas
+Primero se compila. En Windows:
 
-Desde la carpeta raíz del repositorio:
-
-```bash
-elixir test/robot_test.exs
-elixir test/planificador_test.exs
+```
+.\compilar.bat
 ```
 
-Las pruebas cubren, para cada problema, el ejemplo del enunciado, casos sin solución, empates y casos límite (sin ruta, `B` insuficiente, proyecto de 0 y de 1 tarea).
+En otros sistemas:
 
-## Cómo ejecutar los problemas
-
-_(Completar cuando los otros roles integren lectura, validación y escritura de archivos.)_
-
-```bash
-elixir robot/principal.exs
-elixir planificador/principal.exs
+```
+elixirc Orquestador.ex Util Robot Planificador Archivos Test/Pruebas.ex
 ```
 
-Demostración de las funciones del Rol 1 con los datos del enunciado, incluida la comparación de tiempos entre la relajación y la enumeración completa:
+Después se ejecuta cada problema:
 
-```bash
-elixir scripts/demo_rol1.exs
 ```
+elixir rescate.exs
+elixir tareas.exs
+```
+
+Si hay errores en los datos, el programa los reporta en el archivo de validación y no inicia la
+búsqueda. Si falta un archivo requerido, muestra un aviso con su nombre.
 
 ## Archivos de entrada y salida
+
+Las entradas se leen de la carpeta raíz y las salidas se escriben allí mismo.
 
 | Problema | Entradas | Salidas |
 |----------|----------|---------|
 | 1 | `edificio.txt`, `terrenos.csv`, `bateria.txt` | `validacion_edificio.txt`, `expansion_energia.txt`, `recorridos_rescate.csv`, `resumen_rescate.txt`, `ruta_optima.svg` |
 | 2 | `tareas.csv` | `validacion_tareas.txt`, `planes.csv`, `resumen_tareas.txt`, `mejor_plan.svg` |
 
-## Decisiones de diseño (Rol 1)
+## Pruebas
+
+Cada archivo muestra `OK` o `FALLO` por prueba y al final el total.
+
+```
+elixir Test/pruebas_robot.exs
+elixir Test/pruebas_planificador.exs
+elixir Test/pruebas_validadores.exs
+elixir Test/pruebas_lector.exs
+elixir Test/pruebas_salida.exs
+elixir Test/pruebas_svg.exs
+elixir Test/pruebas_svg_xml.exs
+elixir Test/pruebas_integracion.exs
+```
+
+`pruebas_integracion.exs` ejecuta el programa completo con cada carpeta de `fixtures/` y deja allí
+sus salidas. `pruebas_svg_xml.exs` comprueba que los SVG sean XML bien formado.
+
+| Carpeta en `fixtures/` | Tipo | Resultado esperado |
+|---|---|---|
+| `rescate/valido` | Válido | Ejemplo del enunciado: 6 recorridos |
+| `rescate/invalido` | Inválido | 9 errores y no se busca |
+| `rescate/falta_archivo` | Inválido | Aviso de que falta `bateria.txt` |
+| `rescate/limite_minimo` | Límite | S y M vecinas, con la energía justa |
+| `rescate/limite_sin_recorrido` | Límite | La meta no alcanza y se omite la enumeración |
+| `tareas/valido` | Válido | Ejemplo del enunciado: 2 planes, penalizaciones 4 y 6 |
+| `tareas/invalido` | Inválido | 8 errores y no se enumera |
+| `tareas/ciclos` | Inválido | Exactamente 5 ciclos |
+| `tareas/no_entero` | Inválido | Un solo error, sin dependencia falsa |
+| `tareas/limite_una` | Límite | Una tarea con plazo 0: un plan |
+| `tareas/vacio` | Límite | Proyecto vacío, sin enumerar |
+
+`fixtures/lector` contiene los archivos que usan las pruebas de `Lector` y `Svg`.
+
+Para ver la comparación de tiempos entre la relajación y la enumeración, o las salidas de ejemplo
+con datos escritos a mano:
+
+```
+elixir Scripts/demo_rol1.exs
+elixir Scripts/demo_rol3.exs
+```
+
+## Estructura
+
+| Carpeta o archivo | Contenido |
+|---|---|
+| `rescate.exs`, `tareas.exs` | Puntos de entrada |
+| `Orquestador.ex` | Flujo de los dos problemas: leer, validar, ejecutar y escribir |
+| `Robot/` | `Terreno`, `Recorrido`, `Robot`, `Robot.Estadisticas`, `ValidadorEdificio` |
+| `Planificador/` | `Tarea`, `Plan`, `Planificador`, `Planificador.Estadisticas`, `ValidadorTareas` |
+| `Archivos/` | `Lector`, `Salida`, `Svg` |
+| `Util/` | `Util2` y `Benchmark`, provistos por el docente |
+| `Test/` | Pruebas y su utilidad compartida, `Pruebas` |
+| `Scripts/` | Demostraciones |
+| `fixtures/` | Casos de prueba |
+
+## Decisiones de diseño
+
+### Flujo
+
+1. `Orquestador` revisa que existan los archivos y lee con `Lector`, que usa `File.stream!/1` y
+   transformaciones perezosas.
+2. Junta los errores de lectura con los de los validadores y escribe el reporte de validación.
+3. Si no hay errores, `Robot` o `Planificador` entregan cada resultado a un receptor de `Salida`,
+   que lo escribe enseguida. En memoria solo quedan las estadísticas.
+4. Con las estadísticas se escriben el resumen y el SVG.
+
+### Lectura y validación
+
+- Las líneas físicas cuentan comentarios y líneas en blanco.
+- Si una duración, un plazo, un costo o el campo transitable no se pueden convertir, el lector deja
+  el texto original y el validador lo reporta. Así el registro sigue existiendo y lo que depende de
+  él no da un error falso.
+- Una línea con un número incorrecto de campos es un error de lectura y ese registro se descarta.
+- Los validadores son recursivos con head/tail, sin `Enum` ni `Stream`, y devuelven todos los
+  errores como `{linea_o_coordenada, mensaje}`.
 
 ### Problema 1 – Robot
 
-- **Backtracking recursivo** con orden fijo arriba, derecha, abajo, izquierda y coordenadas `{fila, columna}` desde 0.
-- **Pattern matching** para rechazar terrenos: `%Terreno{transitable: false}` descarta la casilla, y un símbolo no definido en `terrenos.csv` también.
-- **Símbolos y costos desde `terrenos.csv`**: la búsqueda consulta un mapa `%{simbolo => %Terreno{}}`. Lo único fijo en el código son los marcadores del enunciado, `"S"` (inicio) y `"M"` (meta).
-- **Sin listas completas**: `buscar_recorridos/5` entrega cada recorrido a una función receptora `fn recorrido, acumulador -> acumulador end`. `Robot.Estadisticas` guarda solo el total y los empates en mínimo de movimientos y mínimo de energía; el primero de cada lista es el que se dibuja en el SVG.
-- **Stream infinito**: `stream_relajacion/3` usa `Stream.iterate/2`; `expansion/3` lo consume hasta el primer par de estados consecutivos iguales y devuelve `{pasos_distintos, indice_estabilizacion}`.
-- **Por qué la relajación es un filtro y no sustituye la enumeración**: calcula el costo mínimo de llegar a cada casilla sin exigir recorridos simples. Si la meta no tiene costo menor o igual que `B`, no existe ningún recorrido válido y se omite la enumeración. Pero un costo alcanzable solo dice que existe al menos un recorrido; no dice cuántos hay, cuáles son ni cuáles tienen menos movimientos, que es justo lo que pide el enunciado.
+- **Backtracking recursivo** con orden fijo arriba, derecha, abajo, izquierda y coordenadas
+  `{fila, columna}` desde 0.
+- **Pattern matching** para rechazar terrenos: `%Terreno{transitable: false}` descarta la casilla, y
+  un símbolo no definido en `terrenos.csv` también.
+- **Símbolos y costos desde `terrenos.csv`**: lo único fijo en el código son los marcadores `"S"` y
+  `"M"` del enunciado.
+- **Sin listas completas**: `buscar_recorridos/5` entrega cada recorrido a una función receptora.
+  `Robot.Estadisticas` guarda solo el total y los empates, cada uno como `{id, recorrido}`.
+- **Stream infinito**: `stream_relajacion/3` usa `Stream.iterate/2`; `expansion/3` lo consume hasta
+  el primer par de estados consecutivos iguales.
+- **Por qué la relajación es un filtro y no sustituye la enumeración**: calcula el costo mínimo de
+  llegar a cada casilla sin exigir recorridos simples. Si la meta no tiene costo menor o igual que
+  `B`, no existe ningún recorrido válido y se omite la enumeración. Pero un costo alcanzable solo
+  dice que existe al menos un recorrido; no dice cuántos hay, cuáles son ni cuáles tienen menos
+  movimientos, que es justo lo que pide el enunciado.
 
 ### Problema 2 – Planificador
 
-- **Backtracking recursivo**: en cada paso se prueban las tareas habilitadas (dependencias ya terminadas) en orden alfabético por ID, sin pausas entre tareas.
-- Para cada plan se calcula `finalizaciones` como lista `{id, inicio, fin}`, la penalización `suma de max(0, fin - plazo)` y la duración total (`Plan.duracion_total/1`).
-- **Función receptora con acumulador**: `generar_planes/3` entrega cada `%Plan{}` sin concatenar los planes en memoria.
-- **Proyecto vacío**: `generar_planes([], acumulador, receptora)` devuelve el acumulador sin enumerar ni llamar a la receptora.
+- **Backtracking recursivo**: en cada paso se prueban las tareas habilitadas en orden alfabético por
+  ID, sin pausas entre tareas.
+- Para cada plan se calcula `finalizaciones` como lista `{id, inicio, fin}`, la penalización
+  `suma de max(0, fin - plazo)` y la duración total.
+- **Proyecto vacío**: se reporta sin enumerar ni llamar a la función receptora.
 
-## Uso de las funciones del Rol 1
+### Salidas
 
-```elixir
-# Problema 1
-terrenos = Terreno.indexar(lista_de_terrenos)
+- Las posiciones del CSV se escriben como `(f,c)->(f,c)`, para no chocar con el separador `;`.
+- Los colores del SVG salen de `terrenos.csv`: no transitables en gris oscuro y el resto por orden de
+  símbolo.
 
-estadisticas =
-  Robot.buscar_recorridos(edificio, terrenos, b,
-    Robot.Estadisticas.nuevo(), &Robot.Estadisticas.actualizar/2)
+## Límite conocido
 
-{pasos, indice} = Robot.expansion(edificio, terrenos, b)
-Robot.meta_alcanzable?({List.last(pasos), Robot.ubicar(edificio, "M")})
-
-# Problema 2
-estadisticas =
-  Planificador.generar_planes(tareas, Planificador.Estadisticas.nuevo(),
-    &Planificador.Estadisticas.actualizar/2)
-```
-
-Para escribir cada recorrido o plan a medida que se produce, quien arme la salida define su propia receptora; por ejemplo, con un acumulador `{estadisticas, archivo}` que escribe una línea y llama a `actualizar/2`.
+La búsqueda de ciclos recorre todos los caminos simples. Con 22 tareas donde cada una depende de
+todas las anteriores tarda cerca de 0,6 s, y ese tiempo se duplica con cada tarea adicional de ese
+tipo.
 
 ## Informe y sustentación
 
-- Informe PDF con la URL del repositorio, datos, resultados y pruebas (un caso válido, uno inválido y uno límite por problema) y la reflexión sobre el uso de inteligencia artificial.
+- Informe PDF con la URL del repositorio, datos, resultados y pruebas (un caso válido, uno inválido y
+  uno límite por problema) y la reflexión sobre el uso de inteligencia artificial.
 - Video de sustentación individual explicando funciones no triviales.

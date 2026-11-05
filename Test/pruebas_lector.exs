@@ -1,135 +1,159 @@
-defmodule LectorTest do
-  use ExUnit.Case, async: true
+# Pruebas de Lector.
+#
+# Ejecución:
+#   .\compilar.bat
+#   elixir Test/pruebas_lector.exs
 
-  @fixtures Path.expand("fixtures", __DIR__)
+defmodule PruebasLector do
+  def main do
+    casos =
+      casos_validos() ++
+        casos_invalidos() ++
+        casos_limite()
 
-  defp fixture(nombre), do: Path.join(@fixtures, nombre)
-
-  @moduletag :tmp_dir
-
-  # --- casos válidos ---------------------------------------------------------
-
-  test "lineas_utiles es perezoso, omite comentarios y conserva la línea física" do
-    assert [{2, "X,pared,no,0"}] =
-             fixture("terrenos.csv") |> Lector.lineas_utiles() |> Enum.take(1)
+    Pruebas.ejecutar(casos)
   end
 
-  test "leer_terrenos devuelve structs con su línea" do
-    assert {:ok, registros, []} = Lector.leer_terrenos(fixture("terrenos.csv"))
-    assert length(registros) == 5
+  defp fixture(nombre), do: "fixtures/lector/#{nombre}"
 
-    assert {2, %Terreno{simbolo: "X", nombre: "pared", transitable: false, costo: 0}} =
-             hd(registros)
+  defp lineas_de(errores), do: Enum.map(errores, fn {linea, _mensaje} -> linea end)
 
-    assert {4, %Terreno{simbolo: "L", nombre: "lodo", transitable: true, costo: 3}} =
-             Enum.at(registros, 2)
-  end
+  defp ids_de(registros), do: Enum.map(registros, fn {_linea, tarea} -> tarea.id end)
 
-  test "leer_edificio devuelve las filas como listas de símbolos" do
-    assert {:ok, filas, []} = Lector.leer_edificio(fixture("edificio.txt"))
-    assert length(filas) == 5
-    assert {1, ["X", "X", "X", "X", "X", "X"]} = hd(filas)
-    assert {2, ["X", "S", ".", "L", "M", "X"]} = Enum.at(filas, 1)
-  end
+  # -----------------------------------
+  # Casos válidos
+  # -----------------------------------
 
-  test "leer_bateria y entero_bateria" do
-    assert {:ok, [{1, "10"}] = registros, []} = Lector.leer_bateria(fixture("bateria.txt"))
-    assert {:ok, 10} = Lector.entero_bateria(registros)
-  end
-
-  test "leer_tareas convierte dependencias" do
-    assert {:ok, registros, []} = Lector.leer_tareas(fixture("tareas.csv"))
-    assert Enum.map(registros, fn {_l, t} -> t.id end) == ["A", "B", "C", "D"]
-    assert {2, %Tarea{id: "A", duracion: 3, plazo: 4, dependencias: []}} = hd(registros)
-    assert {5, %Tarea{id: "D", dependencias: ["B", "C"]}} = List.last(registros)
-  end
-
-  test "construir_mapa e indice_terrenos" do
-    {:ok, filas, []} = Lector.leer_edificio(fixture("edificio.txt"))
-    {:ok, terrenos, []} = Lector.leer_terrenos(fixture("terrenos.csv"))
-
+  defp casos_validos do
+    {:ok, terrenos, errores_terrenos} = Lector.leer_terrenos(fixture("terrenos.csv"))
+    {:ok, filas, errores_filas} = Lector.leer_edificio(fixture("edificio.txt"))
+    {:ok, bateria, errores_bateria} = Lector.leer_bateria(fixture("bateria.txt"))
+    {:ok, tareas, errores_tareas} = Lector.leer_tareas(fixture("tareas.csv"))
     mapa = Lector.construir_mapa(filas)
-    assert mapa.filas == 5
-    assert mapa.columnas == 6
-    assert mapa.inicio == {1, 1}
-    assert mapa.meta == {1, 4}
-    assert mapa.celdas[{1, 3}] == "L"
+    %{{1, 3} => celda} = mapa.celdas
+    %{"L" => lodo} = Lector.indice_terrenos(terrenos)
 
-    indice = Lector.indice_terrenos(terrenos)
-    assert %Terreno{costo: 3} = indice["L"]
+    [
+      {"lineas_utiles omite comentarios y conserva la línea",
+       fixture("terrenos.csv") |> Lector.lineas_utiles() |> Enum.take(1), [{2, "X,pared,no,0"}]},
+      {"terrenos: sin errores", errores_terrenos, []},
+      {"terrenos: cantidad", length(terrenos), 5},
+      {"terrenos: primero", Enum.at(terrenos, 0), {2, Terreno.crear("X", "pared", false, 0)}},
+      {"terrenos: lodo", Enum.at(terrenos, 2), {4, Terreno.crear("L", "lodo", true, 3)}},
+      {"edificio: sin errores", errores_filas, []},
+      {"edificio: filas", length(filas), 5},
+      {"edificio: fila 1", Enum.at(filas, 0), {1, ["X", "X", "X", "X", "X", "X"]}},
+      {"edificio: fila 2", Enum.at(filas, 1), {2, ["X", "S", ".", "L", "M", "X"]}},
+      {"batería: registros", bateria, [{1, "10"}]},
+      {"batería: sin errores", errores_bateria, []},
+      {"batería: entero", Lector.entero_bateria(bateria), {:ok, 10}},
+      {"tareas: sin errores", errores_tareas, []},
+      {"tareas: ids", ids_de(tareas), ["A", "B", "C", "D"]},
+      {"tareas: primera", Enum.at(tareas, 0), {2, Tarea.crear("A", 3, 4, [])}},
+      {"tareas: dependencias", Enum.at(tareas, -1), {5, Tarea.crear("D", 1, 9, ["B", "C"])}},
+      {"mapa: filas", mapa.filas, 5},
+      {"mapa: columnas", mapa.columnas, 6},
+      {"mapa: inicio", mapa.inicio, {1, 1}},
+      {"mapa: meta", mapa.meta, {1, 4}},
+      {"mapa: celda", celda, "L"},
+      {"índice de terrenos", lodo.costo, 3}
+    ]
   end
 
-  # --- casos inválidos -------------------------------------------------------
+  # -----------------------------------
+  # Casos inválidos
+  # -----------------------------------
 
-  test "archivo inexistente devuelve error en vez de excepción" do
+  defp casos_invalidos do
     ruta = fixture("no_existe.csv")
-    assert {:error, :archivo_no_encontrado, ^ruta} = Lector.leer_tareas(ruta)
-    assert {:error, :archivo_no_encontrado, _} = Lector.leer_terrenos(ruta)
-    assert {:error, :archivo_no_encontrado, _} = Lector.leer_edificio(ruta)
-    assert {:error, :archivo_no_encontrado, _} = Lector.leer_bateria(ruta)
+
+    casos_faltantes(ruta) ++
+      caso_tareas_invalidas() ++
+      caso_terrenos_invalidos() ++
+      [
+        {"batería: texto", Lector.entero_bateria([{1, "diez"}]), :error},
+        {"batería: dos líneas", Lector.entero_bateria([{1, "10"}, {2, "20"}]), :error},
+        {"batería: sin líneas", Lector.entero_bateria([]), :error}
+      ]
   end
 
-  test "tareas mal formadas se reportan con su línea y no detienen la lectura" do
-    assert {:ok, registros, errores} = Lector.leer_tareas(fixture("tareas_invalidas.csv"))
-    assert Enum.map(registros, fn {_l, t} -> t.id end) == ["A", "D"]
-    assert Enum.map(errores, fn {linea, _} -> linea end) == [3, 4, 5]
+  defp casos_faltantes(ruta) do
+    esperado = {:error, :archivo_no_encontrado, ruta}
+
+    [
+      {"falta tareas", Lector.leer_tareas(ruta), esperado},
+      {"falta terrenos", Lector.leer_terrenos(ruta), esperado},
+      {"falta edificio", Lector.leer_edificio(ruta), esperado},
+      {"falta batería", Lector.leer_bateria(ruta), esperado}
+    ]
   end
 
-  test "terrenos mal formados se reportan con su línea", %{tmp_dir: tmp} do
-    ruta = Path.join(tmp, "terrenos_malos.csv")
+  # La duración que no es entera se conserva para que la reporte el validador
+  defp caso_tareas_invalidas do
+    {:ok, registros, errores} = Lector.leer_tareas(fixture("tareas_invalidas.csv"))
 
-    File.write!(ruta, """
-    .,pasillo,si,1
-    LL,lodo,si,3
-    L,lodo,tal vez,3
-    P,pared,no,abc
-    Q,pared,no,-2
-    R,roca,no
-    """)
-
-    assert {:ok, [{1, %Terreno{simbolo: "."}}], errores} = Lector.leer_terrenos(ruta)
-    assert Enum.map(errores, fn {linea, _} -> linea end) == [2, 3, 4, 5, 6]
+    [
+      {"tareas inválidas: conserva los registros completos", ids_de(registros), ["A", "B", "D"]},
+      {"tareas inválidas: líneas con error", lineas_de(errores), [4, 5]},
+      {"tareas inválidas: duración como texto", Enum.at(registros, 1), {3, Tarea.crear("B", "dos", 5, ["A"])}}
+    ]
   end
 
-  test "entero_bateria rechaza texto no entero y varias líneas" do
-    assert :error = Lector.entero_bateria([{1, "diez"}])
-    assert :error = Lector.entero_bateria([{1, "10"}, {2, "20"}])
-    assert :error = Lector.entero_bateria([])
+  # Transitable y costo se conservan; símbolo largo y campos faltantes son de lectura
+  defp caso_terrenos_invalidos do
+    ruta = Pruebas.temporal("terrenos_malos.csv")
+
+    File.write(
+      ruta,
+      ".,pasillo,si,1\nLL,lodo,si,3\nL,lodo,tal vez,3\nP,pared,no,abc\nQ,pared,no,-2\nR,roca,no\n"
+    )
+
+    {:ok, registros, errores} = Lector.leer_terrenos(ruta)
+
+    [
+      {"terrenos inválidos: líneas con error", lineas_de(errores), [2, 6]},
+      {"terrenos inválidos: transitable como texto", Enum.at(registros, 1), {3, Terreno.crear("L", "lodo", "tal vez", 3)}},
+      {"terrenos inválidos: costo como texto", Enum.at(registros, 2), {4, Terreno.crear("P", "pared", false, "abc")}},
+      {"terrenos inválidos: costo negativo", Enum.at(registros, 3), {5, Terreno.crear("Q", "pared", false, -2)}}
+    ]
   end
 
-  # --- casos límite ----------------------------------------------------------
+  # -----------------------------------
+  # Casos límite
+  # -----------------------------------
 
-  test "archivo solo con comentarios y líneas en blanco", %{tmp_dir: tmp} do
-    ruta = Path.join(tmp, "vacio.csv")
-    File.write!(ruta, "# solo comentario\n\n   \n  # otro comentario\n")
-    assert {:ok, [], []} = Lector.leer_tareas(ruta)
-    assert {:ok, [], []} = Lector.leer_edificio(ruta)
-  end
+  defp casos_limite do
+    comentarios = Pruebas.temporal("comentarios.csv")
+    File.write(comentarios, "# solo comentario\n\n   \n  # otro comentario\n")
 
-  test "archivo completamente vacío", %{tmp_dir: tmp} do
-    ruta = Path.join(tmp, "cero.csv")
-    File.write!(ruta, "")
-    assert {:ok, [], []} = Lector.leer_terrenos(ruta)
-  end
+    vacio = Pruebas.temporal("vacio.csv")
+    File.write(vacio, "")
 
-  test "la numeración de línea cuenta comentarios y vacías", %{tmp_dir: tmp} do
-    ruta = Path.join(tmp, "numeracion.csv")
-    File.write!(ruta, "# c\n\nA;1;1;-\n   # otro\nB;1;1;A")
-    assert {:ok, [{3, %Tarea{id: "A"}}, {5, %Tarea{id: "B", dependencias: ["A"]}}], []} =
-             Lector.leer_tareas(ruta)
-  end
+    numeracion = Pruebas.temporal("numeracion.csv")
+    File.write(numeracion, "# c\n\nA;1;1;-\n   # otro\nB;1;1;A")
 
-  test "construir_mapa con lista vacía" do
+    bom = Pruebas.temporal("bom.txt")
+    File.write(bom, "﻿10\n")
+
+    latin1 = Pruebas.temporal("latin1.txt")
+    File.write(latin1, <<"caf", 0xE9, "\n">>)
+
     mapa = Lector.construir_mapa([])
-    assert mapa.filas == 0
-    assert mapa.columnas == 0
-    assert mapa.inicio == nil
-    assert mapa.meta == nil
-  end
 
-  test "ignora BOM al inicio del archivo", %{tmp_dir: tmp} do
-    ruta = Path.join(tmp, "bom.txt")
-    File.write!(ruta, "﻿10\n")
-    assert {:ok, [{1, "10"}], []} = Lector.leer_bateria(ruta)
+    [
+      {"solo comentarios: tareas", Lector.leer_tareas(comentarios), {:ok, [], []}},
+      {"solo comentarios: edificio", Lector.leer_edificio(comentarios), {:ok, [], []}},
+      {"archivo vacío", Lector.leer_terrenos(vacio), {:ok, [], []}},
+      {"la línea física cuenta comentarios y vacías", Lector.leer_tareas(numeracion),
+       {:ok, [{3, Tarea.crear("A", 1, 1, [])}, {5, Tarea.crear("B", 1, 1, ["A"])}], []}},
+      {"ignora el BOM", Lector.leer_bateria(bom), {:ok, [{1, "10"}], []}},
+      {"convierte un archivo en Latin-1", Lector.leer_bateria(latin1), {:ok, [{1, "café"}], []}},
+      {"mapa vacío: filas", mapa.filas, 0},
+      {"mapa vacío: columnas", mapa.columnas, 0},
+      {"mapa vacío: inicio", mapa.inicio, nil},
+      {"mapa vacío: meta", mapa.meta, nil}
+    ]
   end
 end
+
+PruebasLector.main()

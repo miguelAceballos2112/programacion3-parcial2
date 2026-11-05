@@ -1,220 +1,267 @@
-# Ejecutar con:  elixir test/robot_test.exs
-Code.require_file("../robot/robot.exs", __DIR__)
+# Pruebas de Robot y Robot.Estadisticas.
+#
+# Ejecución:
+#   .\compilar.bat
+#   elixir Test/pruebas_robot.exs
 
-ExUnit.start()
-
-defmodule RobotTest do
-  use ExUnit.Case
-
-  alias Robot.Estadisticas
+defmodule PruebasRobot do
+  def main do
+    Pruebas.ejecutar(casos_recorridos() ++ casos_relajacion())
+  end
 
   # -----------------------------------
   # Datos de prueba
   # -----------------------------------
 
-  defp terrenos(costo_lodo \\ 3) do
+  defp terrenos(), do: terrenos(3)
+
+  defp terrenos(costo_lodo) do
     Terreno.indexar([
-      %Terreno{simbolo: "X", nombre: "pared", transitable: false, costo: 0},
-      %Terreno{simbolo: ".", nombre: "pasillo", transitable: true, costo: 1},
-      %Terreno{simbolo: "L", nombre: "lodo", transitable: true, costo: costo_lodo},
-      %Terreno{simbolo: "S", nombre: "inicio", transitable: true, costo: 0},
-      %Terreno{simbolo: "M", nombre: "meta", transitable: true, costo: 1}
+      Terreno.crear("X", "pared", false, 0),
+      Terreno.crear(".", "pasillo", true, 1),
+      Terreno.crear("L", "lodo", true, costo_lodo),
+      Terreno.crear("S", "inicio", true, 0),
+      Terreno.crear("M", "meta", true, 1)
     ])
   end
 
   # Ejemplo del enunciado
   defp edificio_enunciado do
     [
-      ~w(X X X X X X),
-      ~w(X S . L M X),
-      ~w(X . X . . X),
-      ~w(X . . . . X),
-      ~w(X X X X X X)
+      ["X", "X", "X", "X", "X", "X"],
+      ["X", "S", ".", "L", "M", "X"],
+      ["X", ".", "X", ".", ".", "X"],
+      ["X", ".", ".", ".", ".", "X"],
+      ["X", "X", "X", "X", "X", "X"]
     ]
   end
 
-  defp estadisticas(edificio, terrenos, b) do
-    Robot.buscar_recorridos(edificio, terrenos, b, Estadisticas.nuevo(), &Estadisticas.actualizar/2)
+  defp meta_encerrada do
+    [
+      ["X", "X", "X", "X", "X"],
+      ["X", "S", "X", "M", "X"],
+      ["X", "X", "X", "X", "X"]
+    ]
+  end
+
+  defp estadisticas(edificio, tabla, b) do
+    Robot.buscar_recorridos(edificio, tabla, b, Robot.Estadisticas.nuevo(), &Robot.Estadisticas.actualizar/2)
   end
 
   # -----------------------------------
   # buscar_recorridos/5
   # -----------------------------------
 
-  test "ejemplo del enunciado con B = 10" do
-    est = estadisticas(edificio_enunciado(), terrenos(), 10)
-
-    assert est.total == 6
-    assert est.min_movimientos == 3
-    assert est.min_energia == 5
-
-    # En este mapa ambos criterios coinciden en un único recorrido
-    [recorrido] = est.menos_movimientos
-    assert recorrido.posiciones == [{1, 1}, {1, 2}, {1, 3}, {1, 4}]
-    assert recorrido.energia == 5
-    assert est.menor_energia == est.menos_movimientos
+  defp casos_recorridos do
+    caso_enunciado() ++
+      caso_receptora() ++
+      caso_limite_b() ++
+      caso_sin_ruta() ++
+      caso_empates() ++
+      caso_criterios_distintos() ++
+      caso_otros_terrenos() ++
+      caso_estadisticas_vacias()
   end
 
-  test "entrega cada recorrido a la función receptora, en el orden fijo de direcciones" do
-    # El acumulador es una lista de energías en orden de llegada (no una lista de recorridos)
+  defp caso_enunciado do
+    est = estadisticas(edificio_enunciado(), terrenos(), 10)
+    [{id, recorrido}] = est.menos_movimientos
+
+    [
+      {"enunciado: total", est.total, 6},
+      {"enunciado: mínimo de movimientos", est.min_movimientos, 3},
+      {"enunciado: mínimo de energía", est.min_energia, 5},
+      {"enunciado: id del mejor recorrido", id, 1},
+      {"enunciado: posiciones", recorrido.posiciones, [{1, 1}, {1, 2}, {1, 3}, {1, 4}]},
+      {"enunciado: energía", recorrido.energia, 5},
+      {"enunciado: ambos criterios coinciden", est.menor_energia, est.menos_movimientos}
+    ]
+  end
+
+  # El acumulador es una lista de energías en orden de llegada
+  defp caso_receptora do
     energias =
-      Robot.buscar_recorridos(edificio_enunciado(), terrenos(), 10, [], fn recorrido, acc ->
-        acc ++ [recorrido.energia]
+      Robot.buscar_recorridos(edificio_enunciado(), terrenos(), 10, [], fn recorrido, acumulado ->
+        acumulado ++ [recorrido.energia]
       end)
 
-    assert hd(energias) == 5
-    assert length(energias) == 6
+    [
+      {"receptora: orden fijo de direcciones", Enum.at(energias, 0), 5},
+      {"receptora: recibe todos los recorridos", length(energias), 6}
+    ]
   end
 
-  test "el límite B es inclusivo: energía igual a B sí se acepta" do
-    assert estadisticas(edificio_enunciado(), terrenos(), 5).total == 1
-  end
-
-  test "B insuficiente: no hay recorridos" do
+  defp caso_limite_b do
     est = estadisticas(edificio_enunciado(), terrenos(), 4)
 
-    assert est.total == 0
-    assert est.menos_movimientos == []
-    assert est.menor_energia == []
-    assert Estadisticas.primero_menor_energia(est) == nil
-  end
-
-  test "sin ruta: la meta está encerrada" do
-    edificio = [
-      ~w(X X X X X),
-      ~w(X S X M X),
-      ~w(X X X X X)
+    [
+      {"B inclusivo: energía igual a B se acepta",
+       estadisticas(edificio_enunciado(), terrenos(), 5).total, 1},
+      {"B insuficiente: total", est.total, 0},
+      {"B insuficiente: sin menos movimientos", est.menos_movimientos, []},
+      {"B insuficiente: sin menor energía", est.menor_energia, []},
+      {"B insuficiente: sin primero", Robot.Estadisticas.primero_menor_energia(est), nil}
     ]
-
-    assert estadisticas(edificio, terrenos(), 100).total == 0
   end
 
-  test "empates: dos recorridos iguales en movimientos y energía" do
+  defp caso_sin_ruta do
+    [{"sin ruta: meta encerrada", estadisticas(meta_encerrada(), terrenos(), 100).total, 0}]
+  end
+
+  defp caso_empates do
     edificio = [
-      ~w(X X X X),
-      ~w(X S . X),
-      ~w(X . M X),
-      ~w(X X X X)
+      ["X", "X", "X", "X"],
+      ["X", "S", ".", "X"],
+      ["X", ".", "M", "X"],
+      ["X", "X", "X", "X"]
     ]
 
     est = estadisticas(edificio, terrenos(), 10)
+    primero = [{1, 1}, {1, 2}, {2, 2}]
 
-    assert est.total == 2
-    assert length(est.menos_movimientos) == 2
-    assert length(est.menor_energia) == 2
-
-    # El primero encontrado va por la derecha (orden fijo arriba, derecha, abajo, izquierda)
-    assert Estadisticas.primero_menor_energia(est).posiciones == [{1, 1}, {1, 2}, {2, 2}]
-    assert Estadisticas.primero_menos_movimientos(est).posiciones == [{1, 1}, {1, 2}, {2, 2}]
+    [
+      {"empates: total", est.total, 2},
+      {"empates: en movimientos", length(est.menos_movimientos), 2},
+      {"empates: en energía", length(est.menor_energia), 2},
+      {"empates: primero de menor energía va por la derecha",
+       Robot.Estadisticas.primero_menor_energia(est).posiciones, primero},
+      {"empates: primero de menos movimientos va por la derecha",
+       Robot.Estadisticas.primero_menos_movimientos(est).posiciones, primero}
+    ]
   end
 
-  test "los criterios de menos movimientos y menor energía pueden no coincidir" do
+  defp caso_criterios_distintos do
     edificio = [
-      ~w(X X X X X),
-      ~w(X S L M X),
-      ~w(X . . . X),
-      ~w(X X X X X)
+      ["X", "X", "X", "X", "X"],
+      ["X", "S", "L", "M", "X"],
+      ["X", ".", ".", ".", "X"],
+      ["X", "X", "X", "X", "X"]
     ]
 
     est = estadisticas(edificio, terrenos(5), 10)
+    [{_id_corto, corto}] = est.menos_movimientos
+    [{_id_barato, barato}] = est.menor_energia
 
-    assert est.total == 4
-
-    # Menos movimientos: atravesar el lodo (2 movimientos, energía 6)
-    assert est.min_movimientos == 2
-    assert [%Recorrido{energia: 6}] = est.menos_movimientos
-
-    # Menor energía: rodear por el pasillo (4 movimientos, energía 4)
-    assert est.min_energia == 4
-    assert [%Recorrido{posiciones: posiciones}] = est.menor_energia
-    assert posiciones == [{1, 1}, {2, 1}, {2, 2}, {2, 3}, {1, 3}]
+    [
+      {"criterios distintos: total", est.total, 4},
+      {"criterios distintos: menos movimientos", est.min_movimientos, 2},
+      {"criterios distintos: energía de atravesar el lodo", corto.energia, 6},
+      {"criterios distintos: menor energía", est.min_energia, 4},
+      {"criterios distintos: rodea por el pasillo", barato.posiciones,
+       [{1, 1}, {2, 1}, {2, 2}, {2, 3}, {1, 3}]}
+    ]
   end
 
-  test "los costos se leen de la tabla de terrenos, no del código" do
-    # Si el lodo cuesta 1, el recorrido por el lodo baja de 5 a 3
-    est = estadisticas(edificio_enunciado(), terrenos(1), 10)
-    assert est.min_energia == 3
-  end
-
-  test "un símbolo sin definir en la tabla de terrenos se trata como no transitable" do
-    edificio = [
-      ~w(X X X X X),
-      ~w(X S ? M X),
-      ~w(X X X X X)
+  defp caso_otros_terrenos do
+    con_simbolo_raro = [
+      ["X", "X", "X", "X", "X"],
+      ["X", "S", "?", "M", "X"],
+      ["X", "X", "X", "X", "X"]
     ]
 
-    assert estadisticas(edificio, terrenos(), 100).total == 0
+    sin_inicio = [
+      ["X", "X", "X"],
+      ["X", "M", "X"],
+      ["X", "X", "X"]
+    ]
+
+    [
+      {"el costo viene de la tabla de terrenos",
+       estadisticas(edificio_enunciado(), terrenos(1), 10).min_energia, 3},
+      {"símbolo sin definir no es transitable",
+       estadisticas(con_simbolo_raro, terrenos(), 100).total, 0},
+      {"edificio sin S no genera recorridos", estadisticas(sin_inicio, terrenos(), 10).total, 0}
+    ]
   end
 
-  test "edificio sin S no genera recorridos" do
-    edificio = [~w(X X X), ~w(X M X), ~w(X X X)]
-    assert estadisticas(edificio, terrenos(), 10).total == 0
-  end
+  defp caso_estadisticas_vacias do
+    est = Robot.Estadisticas.nuevo()
 
-  test "Estadisticas.nuevo/0 arranca vacía" do
-    est = Estadisticas.nuevo()
-
-    assert est.total == 0
-    assert est.min_movimientos == nil
-    assert est.min_energia == nil
+    [
+      {"estadísticas nuevas: total", est.total, 0},
+      {"estadísticas nuevas: movimientos", est.min_movimientos, nil},
+      {"estadísticas nuevas: energía", est.min_energia, nil}
+    ]
   end
 
   # -----------------------------------
   # stream_relajacion/3 y expansion/3
   # -----------------------------------
 
-  test "stream_relajacion: el paso 0 es solo S con costo 0 y el paso 1 agrega vecinos" do
-    [e0, e1] = Robot.stream_relajacion(edificio_enunciado(), terrenos(), 10) |> Enum.take(2)
-
-    assert e0 == %{{1, 1} => 0}
-    assert e1 == %{{1, 1} => 0, {1, 2} => 1, {2, 1} => 1}
+  defp casos_relajacion do
+    caso_primeros_pasos() ++
+      caso_stream_infinito() ++
+      caso_descarta_mayores_que_b() ++
+      caso_expansion() ++
+      caso_meta_alcanzable() ++
+      caso_expansion_meta_encerrada()
   end
 
-  test "stream_relajacion es infinito: se pueden tomar más pasos de los necesarios" do
+  defp caso_primeros_pasos do
+    [paso0, paso1] = Robot.stream_relajacion(edificio_enunciado(), terrenos(), 10) |> Enum.take(2)
+
+    [
+      {"relajación: paso 0 solo S", paso0, %{{1, 1} => 0}},
+      {"relajación: paso 1 agrega vecinos", paso1, %{{1, 1} => 0, {1, 2} => 1, {2, 1} => 1}}
+    ]
+  end
+
+  defp caso_stream_infinito do
     pasos = Robot.stream_relajacion(edificio_enunciado(), terrenos(), 10) |> Enum.take(50)
 
-    assert length(pasos) == 50
-    assert Enum.at(pasos, 49) == Enum.at(pasos, 6)
+    [
+      {"relajación: se pueden tomar 50 pasos", length(pasos), 50},
+      {"relajación: sigue estable", Enum.at(pasos, 49), Enum.at(pasos, 6)}
+    ]
   end
 
-  test "stream_relajacion descarta los costos mayores que B" do
+  defp caso_descarta_mayores_que_b do
     final = Robot.stream_relajacion(edificio_enunciado(), terrenos(), 3) |> Enum.at(30)
 
-    assert Enum.all?(final, fn {_posicion, costo} -> costo <= 3 end)
-    refute Map.has_key?(final, {1, 4})
+    [
+      {"relajación: ningún costo supera B",
+       Enum.filter(final, fn {_posicion, costo} -> costo > 3 end), []},
+      {"relajación: la meta queda fuera",
+       Enum.filter(final, fn {posicion, _costo} -> posicion == {1, 4} end), []}
+    ]
   end
 
-  test "expansion: pasos distintos e índice de estabilización" do
+  defp caso_expansion do
     {pasos, indice} = Robot.expansion(edificio_enunciado(), terrenos(), 10)
+    %{{1, 4} => costo_meta, {1, 3} => costo_lodo, {3, 4} => costo_abajo} = Enum.at(pasos, -1)
 
-    assert indice == 6
-    assert length(pasos) == 6
-    assert Enum.uniq(pasos) == pasos
-
-    final = List.last(pasos)
-    assert final[{1, 4}] == 5
-    assert final[{1, 3}] == 4
-    assert final[{3, 4}] == 5
+    [
+      {"expansión: índice de estabilización", indice, 6},
+      {"expansión: cantidad de pasos", length(pasos), 6},
+      {"expansión: pasos distintos", Enum.uniq(pasos), pasos},
+      {"expansión: costo de la meta", costo_meta, 5},
+      {"expansión: costo del lodo", costo_lodo, 4},
+      {"expansión: costo de (3,4)", costo_abajo, 5}
+    ]
   end
 
-  test "meta_alcanzable?: filtro para omitir la enumeración" do
+  defp caso_meta_alcanzable do
     meta = Robot.ubicar(edificio_enunciado(), "M")
-    assert meta == {1, 4}
+    {pasos, _indice} = Robot.expansion(edificio_enunciado(), terrenos(), 10)
+    {pasos_b4, _indice} = Robot.expansion(edificio_enunciado(), terrenos(), 4)
 
-    {pasos, _} = Robot.expansion(edificio_enunciado(), terrenos(), 10)
-    assert Robot.meta_alcanzable?({List.last(pasos), meta})
-
-    # B = 4 es menor que la energía mínima (5): la meta no es alcanzable
-    {pasos_b4, _} = Robot.expansion(edificio_enunciado(), terrenos(), 4)
-    refute Robot.meta_alcanzable?({List.last(pasos_b4), meta})
+    [
+      {"filtro: ubica la meta", meta, {1, 4}},
+      {"filtro: B = 10 alcanza", Robot.meta_alcanzable?({Enum.at(pasos, -1), meta}), true},
+      {"filtro: B = 4 no alcanza", Robot.meta_alcanzable?({Enum.at(pasos_b4, -1), meta}), false}
+    ]
   end
 
-  test "meta encerrada: la relajación se estabiliza sin alcanzar la meta" do
-    edificio = [~w(X X X X X), ~w(X S X M X), ~w(X X X X X)]
-    {pasos, indice} = Robot.expansion(edificio, terrenos(), 100)
+  defp caso_expansion_meta_encerrada do
+    {pasos, indice} = Robot.expansion(meta_encerrada(), terrenos(), 100)
 
-    assert indice == 1
-    assert pasos == [%{{1, 1} => 0}]
-    refute Robot.meta_alcanzable?({List.last(pasos), {1, 3}})
+    [
+      {"meta encerrada: índice", indice, 1},
+      {"meta encerrada: pasos", pasos, [%{{1, 1} => 0}]},
+      {"meta encerrada: no alcanzable",
+       Robot.meta_alcanzable?({Enum.at(pasos, -1), {1, 3}}), false}
+    ]
   end
 end
+
+PruebasRobot.main()

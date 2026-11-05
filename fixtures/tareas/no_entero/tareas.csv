@@ -1,0 +1,4 @@
+# B tiene una duración que no es entera y D depende de ella
+A;3;4;-
+B;dos;5;A
+D;1;9;B

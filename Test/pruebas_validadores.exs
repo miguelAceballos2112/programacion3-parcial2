@@ -2,7 +2,7 @@
 #
 # Ejecución:
 #   .\compilar.bat
-#   elixir pruebas_validadores.exs
+#   elixir Test/pruebas_validadores.exs
 
 defmodule PruebasValidadores do
   def main do
@@ -15,28 +15,7 @@ defmodule PruebasValidadores do
         casos_dependencias() ++
         casos_ciclos()
 
-    fallos = probar(casos)
-
-    "\n#{length(casos)} pruebas, #{fallos} fallos"
-    |> Util2.mostrar(:mensaje)
-  end
-
-  # Caso base: no quedan pruebas
-  defp probar([]), do: 0
-
-  # Caso recursivo: lo obtenido es igual a lo esperado
-  defp probar([{nombre, obtenido, esperado} | tail]) when obtenido == esperado do
-    Util2.mostrar("OK    #{nombre}", :mensaje)
-    probar(tail)
-  end
-
-  # Caso recursivo: lo obtenido es diferente
-  defp probar([{nombre, obtenido, esperado} | tail]) do
-    Util2.mostrar("FALLO #{nombre}", :mensaje)
-    IO.inspect(esperado, label: "  esperado")
-    IO.inspect(obtenido, label: "  obtenido")
-
-    1 + probar(tail)
+    Pruebas.ejecutar(casos)
   end
 
   # -----------------------------------
@@ -142,7 +121,7 @@ defmodule PruebasValidadores do
       {
         "edificio: cuadrícula vacía reporta un solo error",
         ValidadorEdificio.validar([], terrenos()),
-        [{:general, "La cuadrícula está vacía"}]
+        [{"general", "La cuadrícula está vacía"}]
       },
       {
         "edificio: fila irregular usa la línea física",
@@ -193,7 +172,7 @@ defmodule PruebasValidadores do
           ],
           terrenos()
         ),
-        [{:general, "No existe ninguna casilla M"}]
+        [{"general", "No existe ninguna casilla M"}]
       },
       {
         "edificio: esquina abierta se reporta una sola vez",
@@ -236,7 +215,7 @@ defmodule PruebasValidadores do
           {{1, 3}, "El símbolo Q no está definido en terrenos.csv"},
           {{1, 1}, "Debe existir una sola casilla S"},
           {{1, 2}, "Debe existir una sola casilla S"},
-          {:general, "No existe ninguna casilla M"},
+          {"general", "No existe ninguna casilla M"},
           {{3, 4}, "El borde debe ser X y se encontró: ."}
         ]
       }
@@ -255,7 +234,7 @@ defmodule PruebasValidadores do
       {
         "batería: sin datos",
         ValidadorEdificio.validar_bateria([]),
-        [{:general, "bateria.txt no tiene datos"}]
+        [{"general", "bateria.txt no tiene datos"}]
       },
       {
         "batería: cero",

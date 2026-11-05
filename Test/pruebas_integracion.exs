@@ -1,10 +1,9 @@
 # Pruebas de punta a punta del orquestador con los archivos de fixtures/.
-# Necesitan el código de Rol 1 y Rol 3 en esta misma carpeta.
 # Cada caso escribe sus salidas en su propia carpeta de fixtures/.
 #
 # Ejecución:
 #   .\compilar.bat
-#   elixir pruebas_integracion.exs
+#   elixir Test/pruebas_integracion.exs
 
 defmodule PruebasIntegracion do
   @salidas_rescate [
@@ -18,28 +17,7 @@ defmodule PruebasIntegracion do
 
   def main do
     casos = casos_rescate() ++ casos_tareas()
-    fallos = probar(casos)
-
-    "\n#{length(casos)} pruebas, #{fallos} fallos"
-    |> Util2.mostrar(:mensaje)
-  end
-
-  # Caso base: no quedan pruebas
-  defp probar([]), do: 0
-
-  # Caso recursivo: lo obtenido es igual a lo esperado
-  defp probar([{nombre, obtenido, esperado} | tail]) when obtenido == esperado do
-    Util2.mostrar("OK    #{nombre}", :mensaje)
-    probar(tail)
-  end
-
-  # Caso recursivo: lo obtenido es diferente
-  defp probar([{nombre, obtenido, esperado} | tail]) do
-    Util2.mostrar("FALLO #{nombre}", :mensaje)
-    IO.inspect(esperado, label: "  esperado")
-    IO.inspect(obtenido, label: "  obtenido")
-
-    1 + probar(tail)
+    Pruebas.ejecutar(casos)
   end
 
   # -----------------------------------
@@ -75,6 +53,8 @@ defmodule PruebasIntegracion do
       correr_tareas("invalido", {:error, :validacion}, []) ++
       correr_tareas("ciclos", {:error, :validacion}, []) ++
       revisar_ciclos() ++
+      correr_tareas("no_entero", {:error, :validacion}, []) ++
+      revisar_no_entero() ++
       correr_tareas("no_existe", {:error, :faltan_archivos}, [])
   end
 
@@ -102,6 +82,17 @@ defmodule PruebasIntegracion do
     ruta = "fixtures/tareas/ciclos/validacion_tareas.txt"
 
     [{"tareas ciclos: 5 ciclos sin rotaciones repetidas", contar_lineas(ruta, "Ciclo"), 5}]
+  end
+
+  # La tarea con duración mal formada sigue existiendo: quien depende de ella no da un
+  # error falso de dependencia desconocida
+  defp revisar_no_entero do
+    ruta = "fixtures/tareas/no_entero/validacion_tareas.txt"
+
+    [
+      {"tareas no_entero: un solo error", contar_lineas(ruta, "Errores encontrados: 1"), 1},
+      {"tareas no_entero: sin dependencia falsa", contar_lineas(ruta, "que no existe"), 0}
+    ]
   end
 
   # -----------------------------------

@@ -1,4 +1,4 @@
 @echo off
 
-del *.beam
-elixirc Orquestador.ex Util Robot Planificador Archivos
+del *.beam 2>nul
+elixirc Orquestador.ex Util Robot Planificador Archivos Test/Pruebas.ex

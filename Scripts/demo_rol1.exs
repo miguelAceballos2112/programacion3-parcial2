@@ -1,11 +1,5 @@
 # Demostración del Rol 1 con los datos del enunciado.
-# Ejecutar con:  elixir scripts/demo_rol1.exs
-# Requiere util/Util2.ex y util/benchmark.ex (provistos por el docente).
-
-Code.require_file("../util/Util2.ex", __DIR__)
-Code.require_file("../util/benchmark.ex", __DIR__)
-Code.require_file("../robot/robot.exs", __DIR__)
-Code.require_file("../planificador/planificador.exs", __DIR__)
+# Ejecutar con:  elixir Scripts/demo_rol1.exs
 
 defmodule DemoRol1 do
   def main do
@@ -93,7 +87,7 @@ defmodule DemoRol1 do
     Util2.mostrar("Planes: #{est.total}, penalización mínima: #{est.penalizacion_minima}", :mensaje)
 
     est.optimos
-    |> Util2.convertir_coleccion_mensaje(fn plan ->
+    |> Util2.convertir_coleccion_mensaje(fn {_id, plan} ->
       " - #{Enum.join(plan.orden, " -> ")} (duración #{Plan.duracion_total(plan)})\n"
     end)
     |> Enum.each(&IO.write/1)

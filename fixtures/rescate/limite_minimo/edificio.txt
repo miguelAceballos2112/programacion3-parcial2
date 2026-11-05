@@ -1,0 +1,4 @@
+# Edificio más pequeño posible: S y M vecinas, con la energía justa para llegar
+X X X X
+X S M X
+X X X X

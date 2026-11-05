@@ -1,0 +1,4 @@
+# A propósito no existe bateria.txt en esta carpeta
+X X X X
+X S M X
+X X X X

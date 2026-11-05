@@ -1,0 +1,4 @@
+# Cada tarea depende de las otras dos: deben reportarse exactamente 5 ciclos
+A;1;1;B|C
+B;1;1;A|C
+C;1;1;A|B

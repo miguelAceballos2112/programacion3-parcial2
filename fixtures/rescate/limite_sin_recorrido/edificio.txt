@@ -1,0 +1,4 @@
+# Llegar a M cuesta 2 y la batería solo alcanza para 1
+X X X X X
+X S . M X
+X X X X X

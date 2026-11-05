@@ -1,0 +1,2 @@
+# Una línea de comentario no cuenta como dato
+1

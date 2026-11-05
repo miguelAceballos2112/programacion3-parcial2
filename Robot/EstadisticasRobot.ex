@@ -1,5 +1,3 @@
-Code.require_file("recorrido.exs", __DIR__)
-
 defmodule Robot.Estadisticas do
   @moduledoc """
   Acumulador de la búsqueda del robot.

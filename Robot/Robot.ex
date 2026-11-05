@@ -1,7 +1,3 @@
-Code.require_file("terreno.exs", __DIR__)
-Code.require_file("recorrido.exs", __DIR__)
-Code.require_file("estadisticas_robot.exs", __DIR__)
-
 defmodule Robot do
   @moduledoc """
   Problema 1: robot de rescate con energía limitada.

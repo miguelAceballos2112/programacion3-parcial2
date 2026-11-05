@@ -1,5 +1,3 @@
-Code.require_file("plan.exs", __DIR__)
-
 defmodule Planificador.Estadisticas do
   @moduledoc """
   Acumulador de la enumeración de planes.

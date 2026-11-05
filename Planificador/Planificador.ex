@@ -1,7 +1,3 @@
-Code.require_file("tarea.exs", __DIR__)
-Code.require_file("plan.exs", __DIR__)
-Code.require_file("estadisticas_planificador.exs", __DIR__)
-
 defmodule Planificador do
   @moduledoc """
   Problema 2: planificación de tareas con dependencias.

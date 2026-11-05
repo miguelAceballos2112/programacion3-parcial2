@@ -1,0 +1,9 @@
+*.beam
+erl_crash.dump
+fixtures/**/validacion_*.txt
+fixtures/**/expansion_energia.txt
+fixtures/**/recorridos_rescate.csv
+fixtures/**/resumen_*.txt
+fixtures/**/ruta_optima.svg
+fixtures/**/planes.csv
+fixtures/**/mejor_plan.svg

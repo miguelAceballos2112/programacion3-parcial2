@@ -1,4 +1,3 @@
-# simbolo,nombre,transitable,costo
 X,pared,no,0
 .,pasillo,si,1
 L,lodo,si,3

@@ -61,9 +61,18 @@ defmodule Lector do
     |> File.stream!()
     |> Stream.with_index(1)
     |> Stream.map(fn {texto, numero} ->
-      {numero, texto |> String.trim_leading(@bom) |> String.trim()}
+      {numero, texto |> a_utf8() |> String.trim_leading(@bom) |> String.trim()}
     end)
     |> Stream.reject(fn {_numero, texto} -> texto == "" or String.starts_with?(texto, "#") end)
+  end
+
+  # Un archivo guardado en Latin-1 (común en Windows) se convierte para poder reportarlo
+  defp a_utf8(texto) do
+    if String.valid?(texto) do
+      texto
+    else
+      :unicode.characters_to_binary(texto, :latin1)
+    end
   end
 
   defp leer(ruta, parser) do
@@ -125,8 +134,9 @@ defmodule Lector do
   Lee `tareas.csv` (`id;duracion;plazo;dependencias`).
 
   Devuelve `%Tarea{}` por registro. Las dependencias `-` quedan como `[]` y
-  `B|C` como `["B", "C"]`. Un registro con campos faltantes o enteros mal
-  formados se reporta en la lista de errores con su línea física.
+  `B|C` como `["B", "C"]`. Un registro con campos faltantes se reporta en la lista
+  de errores con su línea física. Una duración o un plazo que no sea entero se deja
+  como texto para que `ValidadorTareas` lo reporte.
 
   ## Ejemplo
 
@@ -238,7 +248,7 @@ defmodule Lector do
       [simbolo, nombre, transitable, costo] ->
         with {:ok, simbolo} <- validar_simbolo(simbolo),
              {:ok, transitable} <- parsear_transitable(transitable),
-             {:ok, costo} <- parsear_costo(costo) do
+             {:ok, costo} <- parsear_entero(costo) do
           {:ok,
            {linea,
             %Terreno{simbolo: simbolo, nombre: nombre, transitable: transitable, costo: costo}}}
@@ -261,19 +271,13 @@ defmodule Lector do
     end
   end
 
+  # Un valor que no se puede convertir se deja como texto: el registro sigue existiendo
+  # y ValidadorEdificio lo reporta sin causar errores falsos en las casillas que lo usan.
   defp parsear_transitable(texto) do
     case String.downcase(texto) do
       "si" -> {:ok, true}
       "no" -> {:ok, false}
-      _ -> {:error, "transitable debe ser 'si' o 'no', se recibió #{inspect(texto)}"}
-    end
-  end
-
-  defp parsear_costo(texto) do
-    case Integer.parse(texto) do
-      {valor, ""} when valor >= 0 -> {:ok, valor}
-      {_valor, ""} -> {:error, "el costo no puede ser negativo: #{texto}"}
-      _ -> {:error, "el costo no es un entero: #{inspect(texto)}"}
+      _ -> {:ok, texto}
     end
   end
 
@@ -281,8 +285,8 @@ defmodule Lector do
     case texto |> String.split(";") |> Enum.map(&String.trim/1) do
       [id, duracion, plazo, dependencias] ->
         with {:ok, id} <- validar_id(id),
-             {:ok, duracion} <- parsear_entero(duracion, "duracion"),
-             {:ok, plazo} <- parsear_entero(plazo, "plazo"),
+             {:ok, duracion} <- parsear_entero(duracion),
+             {:ok, plazo} <- parsear_entero(plazo),
              {:ok, dependencias} <- parsear_dependencias(dependencias) do
           {:ok,
            {linea,
@@ -301,10 +305,11 @@ defmodule Lector do
   defp validar_id(""), do: {:error, "el id de la tarea está vacío"}
   defp validar_id(id), do: {:ok, id}
 
-  defp parsear_entero(texto, campo) do
+  # Si no es entero se deja el texto, para que el validador lo reporte con su línea
+  defp parsear_entero(texto) do
     case Integer.parse(texto) do
       {valor, ""} -> {:ok, valor}
-      _ -> {:error, "#{campo} no es un entero: #{inspect(texto)}"}
+      _ -> {:ok, texto}
     end
   end
 

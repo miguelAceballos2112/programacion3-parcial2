@@ -1,0 +1,6 @@
+# El pasillo está repetido y su primera definición cuesta 0
+X,pared,no,0
+.,pasillo,si,0
+.,pasillo,si,1
+S,inicio,si,0
+M,meta,si,1

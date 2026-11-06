@@ -1,0 +1,6 @@
+# Fila irregular, dos S, sin M, símbolo no definido y borde abierto
+X X X X X
+X S S Q X
+X . . X
+X . . . .
+X X X X X

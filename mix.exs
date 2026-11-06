@@ -7,6 +7,9 @@ defmodule Parcial2.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
+      # El código está organizado por carpetas de rol en lugar de lib/ y test/
+      elixirc_paths: ["Orquestador.ex", "Util", "Robot", "Planificador", "Archivos"],
+      test_paths: ["Test"],
       deps: deps(),
       name: "Parcial2",
       docs: &docs/0
@@ -30,6 +33,8 @@ defmodule Parcial2.MixProject do
       extras: ["README.md"],
       groups_for_modules: [
         Structs: [Terreno, Recorrido, Tarea, Plan],
+        Algoritmos: [Robot, Robot.Estadisticas, Planificador, Planificador.Estadisticas],
+        Validadores: [ValidadorEdificio, ValidadorTareas],
         "Entrada y salida": [Lector, Salida, Svg]
       ]
     ]

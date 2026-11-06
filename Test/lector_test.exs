@@ -1,7 +1,7 @@
 defmodule LectorTest do
   use ExUnit.Case, async: true
 
-  @fixtures Path.expand("fixtures", __DIR__)
+  @fixtures Path.expand("../fixtures/lector", __DIR__)
 
   defp fixture(nombre), do: Path.join(@fixtures, nombre)
 
@@ -41,7 +41,7 @@ defmodule LectorTest do
     assert {:ok, registros, []} = Lector.leer_tareas(fixture("tareas.csv"))
     assert Enum.map(registros, fn {_l, t} -> t.id end) == ["A", "B", "C", "D"]
     assert {2, %Tarea{id: "A", duracion: 3, plazo: 4, dependencias: []}} = hd(registros)
-    assert {5, %Tarea{id: "D", dependencias: ["B", "C"]}} = List.last(registros)
+    assert {5, %Tarea{id: "D", duracion: 1, plazo: 9, dependencias: ["B", "C"]}} = List.last(registros)
   end
 
   test "construir_mapa e indice_terrenos" do
@@ -64,18 +64,20 @@ defmodule LectorTest do
   test "archivo inexistente devuelve error en vez de excepción" do
     ruta = fixture("no_existe.csv")
     assert {:error, :archivo_no_encontrado, ^ruta} = Lector.leer_tareas(ruta)
-    assert {:error, :archivo_no_encontrado, _} = Lector.leer_terrenos(ruta)
-    assert {:error, :archivo_no_encontrado, _} = Lector.leer_edificio(ruta)
-    assert {:error, :archivo_no_encontrado, _} = Lector.leer_bateria(ruta)
+    assert {:error, :archivo_no_encontrado, ^ruta} = Lector.leer_terrenos(ruta)
+    assert {:error, :archivo_no_encontrado, ^ruta} = Lector.leer_edificio(ruta)
+    assert {:error, :archivo_no_encontrado, ^ruta} = Lector.leer_bateria(ruta)
   end
 
-  test "tareas mal formadas se reportan con su línea y no detienen la lectura" do
+  test "la duración que no es entera se conserva para que la reporte el validador" do
     assert {:ok, registros, errores} = Lector.leer_tareas(fixture("tareas_invalidas.csv"))
-    assert Enum.map(registros, fn {_l, t} -> t.id end) == ["A", "D"]
-    assert Enum.map(errores, fn {linea, _} -> linea end) == [3, 4, 5]
+    assert Enum.map(registros, fn {_l, t} -> t.id end) == ["A", "B", "D"]
+    assert Enum.map(errores, fn {linea, _} -> linea end) == [4, 5]
+    assert {3, %Tarea{id: "B", duracion: "dos", plazo: 5, dependencias: ["A"]}} = Enum.at(registros, 1)
   end
 
-  test "terrenos mal formados se reportan con su línea", %{tmp_dir: tmp} do
+  test "transitable y costo se conservan; símbolo largo y campos faltantes son de lectura",
+       %{tmp_dir: tmp} do
     ruta = Path.join(tmp, "terrenos_malos.csv")
 
     File.write!(ruta, """
@@ -87,8 +89,15 @@ defmodule LectorTest do
     R,roca,no
     """)
 
-    assert {:ok, [{1, %Terreno{simbolo: "."}}], errores} = Lector.leer_terrenos(ruta)
-    assert Enum.map(errores, fn {linea, _} -> linea end) == [2, 3, 4, 5, 6]
+    assert {:ok, registros, errores} = Lector.leer_terrenos(ruta)
+    assert Enum.map(errores, fn {linea, _} -> linea end) == [2, 6]
+
+    assert [
+             {1, %Terreno{simbolo: "."}},
+             {3, %Terreno{simbolo: "L", transitable: "tal vez", costo: 3}},
+             {4, %Terreno{simbolo: "P", transitable: false, costo: "abc"}},
+             {5, %Terreno{simbolo: "Q", transitable: false, costo: -2}}
+           ] = registros
   end
 
   test "entero_bateria rechaza texto no entero y varias líneas" do
@@ -115,6 +124,7 @@ defmodule LectorTest do
   test "la numeración de línea cuenta comentarios y vacías", %{tmp_dir: tmp} do
     ruta = Path.join(tmp, "numeracion.csv")
     File.write!(ruta, "# c\n\nA;1;1;-\n   # otro\nB;1;1;A")
+
     assert {:ok, [{3, %Tarea{id: "A"}}, {5, %Tarea{id: "B", dependencias: ["A"]}}], []} =
              Lector.leer_tareas(ruta)
   end
@@ -131,5 +141,11 @@ defmodule LectorTest do
     ruta = Path.join(tmp, "bom.txt")
     File.write!(ruta, "﻿10\n")
     assert {:ok, [{1, "10"}], []} = Lector.leer_bateria(ruta)
+  end
+
+  test "convierte un archivo en Latin-1", %{tmp_dir: tmp} do
+    ruta = Path.join(tmp, "latin1.txt")
+    File.write!(ruta, <<"caf", 0xE9, "\n">>)
+    assert {:ok, [{1, "café"}], []} = Lector.leer_bateria(ruta)
   end
 end

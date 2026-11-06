@@ -2,12 +2,11 @@
 #
 # Uso, desde la carpeta del proyecto:
 #
-#     mix run demo.exs
+#     mix run Scripts/demo_rol3.exs
 #
-# Lee los archivos de ejemplo de test/fixtures/ con el Lector real y genera todos los
+# Lee los archivos de ejemplo de fixtures/lector/ con el Lector real y genera todos los
 # archivos de salida en la carpeta salida/. Los recorridos, los planes y los pasos de
-# la relajación están escritos A MANO como datos de ejemplo (los producirán el Rol 1
-# y el Rol 2 cuando terminen); sirven para ver cómo quedan los archivos y los SVG.
+# la relajación están escritos A MANO: sirven para ver cómo quedan los archivos y los SVG.
 
 carpeta = "salida"
 File.mkdir_p!(carpeta)
@@ -15,10 +14,10 @@ ruta = fn nombre -> Path.join(carpeta, nombre) end
 
 IO.puts("== Lectura con File.stream!/1 ==")
 
-{:ok, filas, errores_edificio} = Lector.leer_edificio("test/fixtures/edificio.txt")
-{:ok, registros_terrenos, errores_terrenos} = Lector.leer_terrenos("test/fixtures/terrenos.csv")
-{:ok, registros_bateria, errores_bateria} = Lector.leer_bateria("test/fixtures/bateria.txt")
-{:ok, registros_tareas, errores_tareas} = Lector.leer_tareas("test/fixtures/tareas.csv")
+{:ok, filas, errores_edificio} = Lector.leer_edificio("fixtures/lector/edificio.txt")
+{:ok, registros_terrenos, errores_terrenos} = Lector.leer_terrenos("fixtures/lector/terrenos.csv")
+{:ok, registros_bateria, errores_bateria} = Lector.leer_bateria("fixtures/lector/bateria.txt")
+{:ok, registros_tareas, _errores_tareas} = Lector.leer_tareas("fixtures/lector/tareas.csv")
 
 IO.puts("edificio: #{length(filas)} filas, terrenos: #{length(registros_terrenos)}, tareas: #{length(registros_tareas)}")
 
@@ -31,7 +30,7 @@ IO.puts("inicio: #{inspect(mapa.inicio)}, meta: #{inspect(mapa.meta)}, B = #{bat
 
 # Archivo faltante: aviso claro, sin excepción.
 IO.puts("\n== Archivo faltante ==")
-faltante = Lector.leer_tareas("test/fixtures/no_existe.csv")
+faltante = Lector.leer_tareas("fixtures/lector/no_existe.csv")
 Salida.avisar_error_lectura(faltante)
 
 # ---------------------------------------------------------------------------
@@ -105,7 +104,7 @@ pasos = [
 IO.puts("\n== Problema 2: salidas de la planificación ==")
 
 # Validación de tareas con un archivo que trae registros mal formados (errores reales del Lector).
-{:ok, _validas, errores_invalidos} = Lector.leer_tareas("test/fixtures/tareas_invalidas.csv")
+{:ok, _validas, errores_invalidos} = Lector.leer_tareas("fixtures/lector/tareas_invalidas.csv")
 
 :ok =
   Salida.escribir_validacion(
@@ -157,4 +156,4 @@ carpeta
 |> Enum.sort()
 |> Enum.each(fn nombre -> IO.puts("  - #{nombre}") end)
 
-IO.puts("\nAbre los SVG en el navegador, por ejemplo: open #{ruta.("ruta_optima.svg")}")
+IO.puts("\nAbre los SVG en el navegador, por ejemplo: #{ruta.("ruta_optima.svg")}")

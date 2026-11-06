@@ -149,7 +149,7 @@ defmodule SalidaTest do
     errores = [
       {3, "costo no es un entero"},
       {{0, 2}, "el borde debe ser X"},
-      {"columna 4", "texto libre"}
+      {"general", "texto libre"}
     ]
 
     :ok = Salida.escribir_validacion(ruta, "Validación del edificio", errores)
@@ -157,7 +157,7 @@ defmodule SalidaTest do
     assert archivo =~ "Errores encontrados: 3"
     assert archivo =~ "- línea 3: costo no es un entero"
     assert archivo =~ "- casilla (0,2): el borde debe ser X"
-    assert archivo =~ "- columna 4: texto libre"
+    assert archivo =~ "- general: texto libre"
   end
 
   test "escribir_validacion sin errores", %{tmp_dir: tmp} do
@@ -169,7 +169,7 @@ defmodule SalidaTest do
   test "avisar_error_lectura muestra un aviso claro" do
     salida =
       capture_io(fn ->
-        Salida.avisar_error_lectura({:error, :archivo_no_encontrado, "datos/edificio.txt"})
+        assert :ok = Salida.avisar_error_lectura({:error, :archivo_no_encontrado, "datos/edificio.txt"})
       end)
 
     assert salida =~ "no se encontró el archivo requerido: datos/edificio.txt"
@@ -180,5 +180,11 @@ defmodule SalidaTest do
     File.write!(ruta, "contenido anterior muy largo que no debe quedar")
     :ok = Salida.escribir_validacion(ruta, "T", [])
     refute File.read!(ruta) =~ "anterior"
+  end
+
+  # --- formatos --------------------------------------------------------------
+
+  test "Recorrido.movimientos con recorrido vacío es 0" do
+    assert Recorrido.movimientos(%Recorrido{}) == 0
   end
 end

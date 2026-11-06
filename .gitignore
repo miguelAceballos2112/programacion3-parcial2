@@ -1,0 +1,15 @@
+/_build/
+/deps/
+/doc/
+/tmp/
+*.ez
+*.beam
+erl_crash.dump
+salida/
+validacion_*.txt
+expansion_energia.txt
+recorridos_rescate.csv
+resumen_*.txt
+ruta_optima.svg
+planes.csv
+mejor_plan.svg

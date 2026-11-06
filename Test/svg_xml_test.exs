@@ -3,11 +3,14 @@ defmodule SvgXmlTest do
   Comprueba que todos los SVG generados sean XML bien formado (lo mismo que exige
   el navegador al abrirlos), usando el parser :xmerl que viene con Erlang/OTP.
   """
-  use ExUnit.Case, async: true
+  # No es asíncrono: las últimas pruebas escriben en fixtures/, igual que IntegracionTest
+  use ExUnit.Case
+
+  import ExUnit.CaptureIO
 
   @moduletag :tmp_dir
 
-  @fixtures Path.expand("fixtures", __DIR__)
+  @fixtures Path.expand("../fixtures/lector", __DIR__)
 
   defp bien_formado?(ruta) do
     bytes = ruta |> File.read!() |> :erlang.binary_to_list()
@@ -74,5 +77,20 @@ defmodule SvgXmlTest do
 
     assert bien_formado?(con)
     assert bien_formado?(sin)
+  end
+
+  # Los SVG que deja el programa en los casos de prueba de punta a punta
+  test "los SVG que genera el programa son XML válido" do
+    capture_io(fn ->
+      Orquestador.rescate("fixtures/rescate/valido")
+      Orquestador.rescate("fixtures/rescate/limite_sin_recorrido")
+      Orquestador.tareas("fixtures/tareas/valido")
+      Orquestador.tareas("fixtures/tareas/vacio")
+    end)
+
+    assert bien_formado?("fixtures/rescate/valido/ruta_optima.svg")
+    assert bien_formado?("fixtures/rescate/limite_sin_recorrido/ruta_optima.svg")
+    assert bien_formado?("fixtures/tareas/valido/mejor_plan.svg")
+    assert bien_formado?("fixtures/tareas/vacio/mejor_plan.svg")
   end
 end

@@ -3,8 +3,8 @@ defmodule Tarea do
   Tarea del proyecto leída de `tareas.csv` (`id;duracion;plazo;dependencias`).
 
   `dependencias` es la lista de IDs de las que depende (`[]` cuando el CSV trae `-`).
-  El parser conserva los valores tal como vienen (incluso duplicados o no positivos)
-  para que el validador pueda reportarlos con su línea.
+  El lector conserva los valores tal como vienen (incluso duplicados, no positivos o
+  no enteros) para que `ValidadorTareas` pueda reportarlos con su línea.
   """
 
   defstruct id: nil, duracion: 0, plazo: 0, dependencias: []
@@ -16,4 +16,13 @@ defmodule Tarea do
           plazo: integer(),
           dependencias: [String.t()]
         }
+
+  def crear(id, duracion, plazo, dependencias) do
+    %Tarea{
+      id: id,
+      duracion: duracion,
+      plazo: plazo,
+      dependencias: dependencias
+    }
+  end
 end

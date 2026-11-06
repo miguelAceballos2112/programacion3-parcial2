@@ -3,7 +3,7 @@ defmodule SvgTest do
 
   @moduletag :tmp_dir
 
-  @fixtures Path.expand("fixtures", __DIR__)
+  @fixtures Path.expand("../fixtures/lector", __DIR__)
 
   defp cargar do
     {:ok, filas, []} = Lector.leer_edificio(Path.join(@fixtures, "edificio.txt"))
@@ -12,6 +12,34 @@ defmodule SvgTest do
   end
 
   defp ocurrencias(texto, patron), do: length(String.split(texto, patron)) - 1
+
+  # Comprueba que cada texto quepa dentro del ancho del SVG. Estima 0,5 em por carácter,
+  # lo mínimo que ocupa un texto normal en una fuente sans-serif.
+  defp assert_textos_caben(svg) do
+    [_, ancho] = Regex.run(~r/<svg [^>]*width="(\d+)"/, svg)
+    ancho = String.to_integer(ancho)
+
+    textos =
+      Regex.scan(~r/<text x="(\d+)"[^>]*font-size="(\d+)"([^>]*)>([^<]*)<\/text>/, svg)
+
+    assert textos != []
+
+    Enum.each(textos, fn [_, x, tamano, atributos, contenido] ->
+      x = String.to_integer(x)
+      px = String.length(contenido) * String.to_integer(tamano) * 0.5
+
+      cond do
+        atributos =~ ~s(text-anchor="end") ->
+          assert x - px >= 0, "#{contenido} se sale por la izquierda"
+
+        atributos =~ ~s(text-anchor="middle") ->
+          assert x + px / 2 <= ancho, "#{contenido} se sale por la derecha"
+
+        true ->
+          assert x + px <= ancho, "#{contenido} se sale por la derecha"
+      end
+    end)
+  end
 
   defp tareas_ejemplo do
     [
@@ -54,7 +82,9 @@ defmodule SvgTest do
 
     assert String.starts_with?(svg, ~s(<?xml version="1.0" encoding="UTF-8"?>))
     assert String.ends_with?(svg, "</svg>\n")
-    assert svg =~ ~s(width="280" height=)
+    # El mapa mide 240 px, pero la leyenda de la ruta es más ancha: 32 + 8 + 50 * 8 px
+    assert svg =~ ~s(width="440" height=)
+    assert_textos_caben(svg)
     assert svg =~ "<polyline"
     # centros de las 8 casillas del recorrido (casilla de 40 px: x = col*40+20, y = fila*40+20)
     assert svg =~ ~s(points="60,60 100,60 100,100 100,140 140,140 180,140 180,100 180,60")
@@ -87,6 +117,17 @@ defmodule SvgTest do
 
     assert svg =~ "lodo &lt;&amp;&gt; &quot;feo&quot;"
     refute svg =~ "lodo <&>"
+  end
+
+  test "ruta_optima.svg se ensancha con el nombre largo de un terreno", %{tmp_dir: tmp} do
+    {mapa, indice} = cargar()
+    nombre = String.duplicate("muy largo ", 12)
+    indice = Map.put(indice, "L", %Terreno{simbolo: "L", nombre: nombre, transitable: true, costo: 3})
+    ruta = Path.join(tmp, "nombre_largo.svg")
+
+    :ok = Svg.escribir_ruta(ruta, mapa, indice, nil)
+
+    assert_textos_caben(File.read!(ruta))
   end
 
   test "colores: paredes en gris y símbolos con colores distintos" do
@@ -126,6 +167,24 @@ defmodule SvgTest do
     assert svg =~ ~s(width="180" height="24")
     assert svg =~ ~s(width="60" height="24")
     assert svg =~ ~s(Tiempo en unidades)
+    assert_textos_caben(svg)
+  end
+
+  test "mejor_plan.svg deja espacio para IDs largos y un título largo", %{tmp_dir: tmp} do
+    ruta = Path.join(tmp, "largos.svg")
+    ids = for i <- 1..12, do: "Implementar_modulo_#{i}"
+
+    finalizaciones =
+      ids
+      |> Enum.with_index()
+      |> Enum.map(fn {id, i} -> {id, i, i + 1} end)
+
+    plan = %Plan{orden: ids, finalizaciones: finalizaciones, penalizacion: 66}
+    tareas = Enum.map(ids, fn id -> %Tarea{id: id, duracion: 1, plazo: 1, dependencias: []} end)
+
+    :ok = Svg.escribir_gantt(ruta, plan, tareas)
+
+    assert_textos_caben(File.read!(ruta))
   end
 
   test "mejor_plan.svg sin plan muestra una leyenda explicativa", %{tmp_dir: tmp} do
